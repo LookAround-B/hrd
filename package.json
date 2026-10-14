@@ -8,7 +8,7 @@
     "frontend"
   ],
   "scripts": {
-    "dev": "concurrently -n api,web 'npm run dev -w backend' 'npm run dev -w frontend'",
+    "dev": "concurrently -n api,web \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build -w frontend && npm run build -w backend",
     "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
     "test": "vitest run",

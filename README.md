@@ -9,13 +9,14 @@ Requires Node 22.12+ and a separate PostgreSQL database. Install dependencies wi
 | Setting | Purpose |
 | --- | --- |
 | `DATABASE_URL` | HRD database only; never EFM's database |
+| `DB_SSL` | `false` for a local Postgres without SSL; omit for hosted databases (SSL on) |
 | `TOKEN_ENCRYPTION_KEY` | Base64 32-byte key, generated with `openssl rand -base64 32`; identical in API and scheduler |
 | `GOOGLE_CLIENT_ID` | Google web client ID; configure the HRD website as an authorised JavaScript origin |
 | `ADMIN_EMAILS` | Comma-separated administrator email allow-list |
 | `APP_ORIGIN` | Exact frontend origin, e.g. `http://localhost:8001`, no trailing slash |
 | `EFM_ALLOWED_HOSTS` | Comma-separated exact approved HTTPS hostnames, no wildcards or ports |
 
-Run `npm run db:migrate`, then `npm run dev`. Open http://localhost:8001. The Vite frontend proxies `/api` to the HRD backend on port 8501. Without Google configuration, the login screen explains that sign-in is awaiting setup; no authentication bypass is available.
+Run `npm run db:migrate`, then `npm run dev`. Open http://localhost:8001. The Vite frontend proxies `/api` to the HRD backend on port 8501. Without Google configuration, the login screen explains that sign-in is awaiting setup; no authentication bypass is available. For local testing only, `npm run dev:session -w backend -- you@example.com` (an `ADMIN_EMAILS` address) prints a 12-hour session cookie to set in the browser console; it refuses to run when `NODE_ENV=production`.
 
 ## Club onboarding and live activation
 
