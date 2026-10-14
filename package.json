@@ -1,0 +1,30 @@
+{
+  "name": "hrd",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web 'npm run dev -w backend' 'npm run dev -w frontend'",
+    "build": "npm run build -w frontend && npm run build -w backend",
+    "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
+    "test": "vitest run",
+    "test:db": "vitest run tests/database.test.ts",
+    "test:e2e": "playwright test",
+    "test:ui": "playwright test --config playwright.ui.config.ts",
+    "db:migrate": "npm run db:migrate -w backend",
+    "sync": "npm run sync -w backend"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.20.6",
+    "vitest": "^5.0.4"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

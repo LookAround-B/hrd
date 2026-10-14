@@ -1,0 +1,26 @@
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown, X, Search, Inbox, LoaderCircle } from 'lucide-react';
+
+export function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}) {
+  const ref=useRef<HTMLDialogElement>(null); const titleId=useId();
+  useEffect(()=>{const el=ref.current!;const previous=document.body.style.overflow;document.body.style.overflow='hidden';el.showModal();return()=>{el.close();document.body.style.overflow=previous;};},[]);
+  return <dialog ref={ref} aria-labelledby={titleId} onCancel={e=>{e.preventDefault();onClose();}} onClick={e=>{if(e.target!==e.currentTarget)return;const bounds=e.currentTarget.getBoundingClientRect();if(e.clientX<bounds.left||e.clientX>bounds.right||e.clientY<bounds.top||e.clientY>bounds.bottom)onClose();}} className="modal"><header><h2 id={titleId}>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Close dialog"><X size={20}/></button></header><div className="modal-body">{children}</div></dialog>;
+}
+export function Badge({children,tone='neutral'}:{children:ReactNode;tone?:'neutral'|'good'|'warn'|'bad'}) {return <span className={`badge ${tone}`}><span className="badge-dot" aria-hidden="true"/>{children}</span>;}
+export function Empty({title,description,action}:{title:string;description:string;action?:ReactNode}) {return <div className="empty"><div className="empty-icon"><Inbox size={26}/></div><h2>{title}</h2><p>{description}</p>{action}</div>;}
+export function DataNote({children}:{children:ReactNode}) {return <details className="data-note"><summary>Data availability <ChevronDown size={16}/></summary><div>{children}</div></details>;}
+export function Identity({name,subtitle}:{name:string;subtitle?:string}) {return <div className="identity"><span className="avatar" aria-hidden="true">{name.split(' ').slice(0,2).map(s=>s[0]).join('').toUpperCase()}</span><div><strong>{name}</strong>{subtitle&&<small>{subtitle}</small>}</div></div>;}
+export function LoadingPanel() {return <section className="loading-panel" role="status" aria-label="Loading club data"><LoaderCircle size={26} className="spin"/><h2>Loading club data</h2><p>Getting the latest records from HRD.</p></section>;}
+export function DataTable({headers,rows,searchable=true,empty='No records match these filters.'}:{headers:string[];rows:{key:string;search:string;cells:ReactNode[]}[];searchable?:boolean;empty?:string}) {
+  const [query,setQuery]=useState(''); const [page,setPage]=useState(0); const [size,setSize]=useState(20);
+  const filtered=useMemo(()=>rows.filter(r=>r.search.toLowerCase().includes(query.trim().toLowerCase())),[rows,query]);
+  const pages=Math.max(1,Math.ceil(filtered.length/size)); const current=Math.min(page,pages-1); const start=current*size;
+  return <section className="table-section"><div className="table-tools">{searchable&&<label className="search"><Search size={17}/><input aria-label="Search records" placeholder="Search records…" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/>{query&&<button className="icon-button" aria-label="Clear search" onClick={()=>{setQuery('');setPage(0);}}><X size={16}/></button>}</label>}<span>{filtered.length.toLocaleString()} {filtered.length===1?'record':'records'}</span></div>
+    <div className="table-scroll"><table><thead><tr>{headers.map(h=><th scope="col" key={h}>{h}</th>)}</tr></thead><tbody>{filtered.slice(start,start+size).map(row=><tr key={row.key}>{row.cells.map((cell,i)=><td key={i}><span className="mobile-cell-label" aria-hidden="true">{headers[i]}</span><div className="cell-content">{cell}</div></td>)}</tr>)}</tbody></table></div>
+    {!filtered.length&&<div className="table-empty"><Search size={24}/><p>{empty}</p>{query&&<button onClick={()=>setQuery('')}>Clear search</button>}</div>}
+    <footer className="pagination"><span>{filtered.length?`${start+1}–${Math.min(start+size,filtered.length)} of ${filtered.length}`:'0 records'}</span><div className="page-controls"><label>Rows<select aria-label="Rows per page" value={size} onChange={e=>{setSize(Number(e.target.value));setPage(0);}}>{[10,20,50].map(n=><option key={n} value={n}>{n}</option>)}</select></label><span>Page {current+1} of {pages}</span><button className="icon-button" aria-label="Previous page" disabled={!current} onClick={()=>setPage(current-1)}><ChevronLeft size={18}/></button><button className="icon-button" aria-label="Next page" disabled={current>=pages-1} onClick={()=>setPage(current+1)}><ChevronRight size={18}/></button></div></footer>
+  </section>;
+}
+export const text=(value:unknown,fallback='Unavailable')=>typeof value==='string'||typeof value==='number'?String(value):fallback;
+export const quantity=(value:unknown)=>typeof value==='number'?value.toLocaleString('en-IN',{maximumFractionDigits:2}):'Unavailable';
+export function date(value:unknown,withTime=false):string {if(typeof value!=='string')return 'Not yet';const d=new Date(value);return Number.isNaN(d.getTime())?'Unavailable':new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',...(withTime?{hour:'2-digit',minute:'2-digit'}:{})}).format(d);}

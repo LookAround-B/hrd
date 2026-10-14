@@ -1,0 +1,40 @@
+import { randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
+import { db,transaction } from './db';
+import type { Club, Dashboard, EntityType, RouteCheck, SourceRecord,RouteDefinition } from '../../../shared/types';
+import type { Normalized } from './normalize';
+import catalog from '../../../shared/route-catalog.json';
+export const clubSelect=`SELECT c.*, (SELECT count(*)::int FROM hrd_records r WHERE r.club_id=c.id AND r.entity_type='employee') employee_count,
+  (SELECT count(*)::int FROM hrd_records r WHERE r.club_id=c.id AND r.entity_type='horse') horse_count FROM hrd_clubs c`;
+const iso=(v:Date|null)=>v?.toISOString()||null;
+export function publicClub(r: Record<string,any>): Club {
+  return {id:r.id,name:r.name,brief:r.brief,baseUrl:r.base_url,authorisation:r.authorisation,issuer:r.issuer,collectedAt:iso(r.collected_at)!,credentialMask:r.credential_mask,credentialExpiresAt:iso(r.credential_expires_at),status:r.status,validatedAt:iso(r.validated_at),lastSuccessAt:iso(r.last_success_at),disconnectedAt:iso(r.disconnected_at),createdAt:iso(r.created_at)!,employeeCount:r.employee_count,horseCount:r.horse_count,stale:!r.last_success_at||Date.now()-r.last_success_at.getTime()>900000};
+}
+export async function dashboard(): Promise<Dashboard> {
+  // One read snapshot prevents mixing a new club count with the preceding dataset.
+  return transaction(async client=>{
+    await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const clubs=(await client.query(clubSelect+' ORDER BY c.created_at')).rows.map(publicClub);
+    const records:SourceRecord[]=(await client.query('SELECT * FROM hrd_records ORDER BY entity_type,source_id')).rows.map(r=>({id:r.id,clubId:r.club_id,type:r.entity_type,sourceId:r.source_id,data:r.data,syncedAt:r.synced_at.toISOString()}));
+    const checks:RouteCheck[]=(await client.query('SELECT * FROM hrd_route_checks')).rows.map(r=>({clubId:r.club_id,route:r.route,state:r.state,status:r.status,latencyMs:r.latency_ms,checkedAt:r.checked_at.toISOString(),lastSuccessAt:iso(r.last_success_at)}));
+    return {clubs,records,checks,catalog:catalog as RouteDefinition[]};
+  });
+}
+export async function replaceDataset(clubId:string,type:EntityType,records:Normalized[],version:number,client?:PoolClient,pilot=false) {
+  const replace=async(tx:PoolClient)=>{
+    const {rows}=await tx.query('SELECT status,credential_version,validated_at FROM hrd_clubs WHERE id=$1 FOR UPDATE',[clubId]);
+    if(!rows[0]||!(rows[0].status==='active'||(pilot&&rows[0].status==='pending'&&rows[0].validated_at))||rows[0].credential_version!==version) throw new Error('Club credential or connection changed');
+    const seen=new Set<string>();for(const record of records) { if(seen.has(record.sourceId)) throw new Error('Duplicate EFM record');seen.add(record.sourceId); }
+    // Complete replacement is atomic: no partially fetched records reach the dashboard.
+    await tx.query('DELETE FROM hrd_records WHERE club_id=$1 AND entity_type=$2',[clubId,type]);
+    if(records.length) await tx.query(`INSERT INTO hrd_records(id,club_id,entity_type,source_id,data)
+      SELECT (row->>'id')::uuid,$1,$2,row->>'sourceId',row->'data' FROM jsonb_array_elements($3::jsonb) row`,[clubId,type,JSON.stringify(records.map(r=>({...r,id:randomUUID()})))]);
+  };
+  return client?replace(client):transaction(replace);
+}
+export async function routeCheck(clubId:string,route:string,state:string,status:number|null,latencyMs:number,version:number) {
+  await db().query(`INSERT INTO hrd_route_checks(club_id,route,state,status,latency_ms,last_success_at)
+    SELECT $1,$2,$3,$4,$5,CASE WHEN $3='ok' THEN now() ELSE NULL END FROM hrd_clubs WHERE id=$1 AND credential_version=$6 AND status!='disconnected'
+    ON CONFLICT(club_id,route) DO UPDATE SET state=EXCLUDED.state,status=EXCLUDED.status,latency_ms=EXCLUDED.latency_ms,checked_at=now(),
+    last_success_at=CASE WHEN EXCLUDED.state='ok' THEN now() ELSE hrd_route_checks.last_success_at END`,[clubId,route,state,status,latencyMs,version]);
+}
