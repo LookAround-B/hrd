@@ -108,7 +108,17 @@ export default function App() {
   </div>;
 }
 function Food({records,clubName}:{records:SourceRecord[];clubName:(id:string)=>string}) {
-  const today=new Date().toISOString().slice(0,10);const [from,setFrom]=useState(new Date(Date.now()-29*86400000).toISOString().slice(0,10));const [to,setTo]=useState(today);
+  const today=new Date().toISOString().slice(0,10);
+  // Default to the last 30 days, widened back to the latest month EFM has feed figures or daily consumption for,
+  // so a club that hasn't recorded food recently still opens on its most recent data instead of an empty range.
+  const [from,setFrom]=useState(()=>{
+    const recent=new Date(Date.now()-29*86400000).toISOString().slice(0,10);
+    const latest=records.reduce((max,r)=>{
+      const d=r.type==='feedInventory'?`${r.data.year}-${String(r.data.month).padStart(2,'0')}-01`:r.type==='consumption'&&r.data.kind==='day'?text(r.data.date).slice(0,7)+'-01':'';
+      return /^\d{4}-\d{2}-01$/.test(d)&&d>max?d:max;
+    },'');
+    return latest&&latest<recent?latest:recent;
+  });const [to,setTo]=useState(today);
   const invalid=!from||!to||from>to;const inventories=records.filter(r=>r.type==='feedInventory');
   const unit=(club:string,feed:unknown)=>text(inventories.find(r=>r.clubId===club&&r.data.feedType===feed)?.data.unit);
   const consumption=records.filter(r=>r.type==='consumption'&&r.data.kind==='day'&&text(r.data.date)>=from&&text(r.data.date)<=to);

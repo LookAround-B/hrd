@@ -226,3 +226,12 @@ test('club lifecycle continues after a failed connection test through sync, acti
   await expect(page.getByRole('button',{name:'Sync & reconcile',exact:true})).toBeDisabled();
   expect(actions).toEqual(['test','test','sync','activate','credential','test','disconnect']);
 });
+
+test('food opens on the latest recorded month when EFM has no recent food entries', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2027-03-15T06:00:00Z'));
+  await mockApi(page); await page.goto('/');
+  await expect(page.getByRole('heading', { name: clubA.name })).toBeVisible();
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await expect(page.getByLabel('From', { exact: true })).toHaveValue('2026-10-01');
+  await expect(page.getByText('10/2026 · monthly').first()).toBeVisible();
+});
