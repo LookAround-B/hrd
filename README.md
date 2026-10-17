@@ -96,14 +96,7 @@ Live: website `https://hrd-web-five.vercel.app`, API `https://hrd-api.vercel.app
 | `hrd-api` | `backend` | Next.js API, region `bom1`. Env: `DATABASE_URL`, `TOKEN_ENCRYPTION_KEY`, `GOOGLE_CLIENT_ID`, `ADMIN_EMAILS`, `APP_ORIGIN` (website URL), `EFM_ALLOWED_HOSTS`, `CRON_SECRET` (32+ chars). |
 | `hrd-web` | `frontend` | Static Vite build. `frontend/vercel.json` rewrites `/api/*` to `hrd-api`, so cookies stay first-party on the website origin. |
 
-Deploy from a clean workspace install (a stray pnpm `backend/node_modules` breaks file tracing). Link each project at the **workspace root**:
-
-```bash
-npm ci --include=dev
-vercel link --yes --project hrd-api   # or hrd-web
-vercel pull --yes --environment production
-vercel build --prod && vercel deploy --prebuilt --prod
-```
+Both projects are connected to `LookAround-B/hrd`: every push to `master` builds and deploys automatically. `vercel.json` in each package runs `cd .. && npm ci --include=dev` so the npm workspace (hoisted `node_modules`, `shared/`) is installed from the repository root, then `npm run build`. Root Directory must stay `backend` / `frontend`, or the build fails with `NEXT_NO_VERSION`.
 
 Scheduled sync: `GET /api/cron/sync` with `Authorization: Bearer $CRON_SECRET` runs `syncAll()` (maintenance + every active club). Hobby cron only allows daily runs, so `vercel.json` has a daily backstop and `.github/workflows/sync.yml` calls the endpoint every 5 minutes using the `HRD_CRON_SECRET` repository secret (same value as `CRON_SECRET`). On Vercel Pro, change the cron in `backend/vercel.json` to `*/5 * * * *` and disable the workflow. Run migrations from an operator machine with `npm run db:migrate` before deploying schema changes.
 
