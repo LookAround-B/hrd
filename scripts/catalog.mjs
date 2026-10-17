@@ -6,9 +6,12 @@ const safe = new Map([
   ['/api/auth/me', undefined], ['/api/employees','employee'], ['/api/employees/[id]','employee'],
   ['/api/horses','horse'], ['/api/horse-care-team','careTeam'], ['/api/health-records','health'],
   ['/api/medicine-logs','medicine'], ['/api/feed-inventory','feedInventory'],
-  ['/api/feed-inventory/consumption-report','consumption'], ['/api/groceries-inventory','grocery']
+  ['/api/feed-inventory/consumption-report','consumption'], ['/api/groceries-inventory','grocery'],
+  ['/api/integrations/horse-feed-plans','feedPlan'], ['/api/integrations/grocery-usage','groceryUsage'],
+  ['/api/integrations/manifest',undefined]
 ]);
 const sideEffects = new Map([
+  ['/api/integrations/token','Reviewed credential exchange only; never mirrored or probed as a data route.'],
   ['/api/horse-feeds','Read can create expired-menu notifications.'],
   ['/api/horse-feeds/summary','Read can create expired-menu notifications.'],
   ['/api/grocery-tracker','Read can create missing monthly tracker rows.'],

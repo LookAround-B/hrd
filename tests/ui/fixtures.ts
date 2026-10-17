@@ -26,9 +26,10 @@ export const records: SourceRecord[] = [
     designation: i === 0 ? 'Stable Manager' : 'Groom', department: 'Stable operations',
     email: i === 0 ? 'asha.menon@example.com' : `team${i}@example.com`,
     phoneNumber: '+91 90000 00001', employmentStatus: 'Active',
+    shiftTiming: 'Morning shift', isApproved: true, supervisor: {fullName: 'Fixture supervisor'},
   })),
   record(clubB.id, 'employee', 'employee-0', { fullName: 'Ravi Kumar', designation: 'Instructor', department: 'Training', email: 'ravi@example.com', employmentStatus: 'Active' }),
-  record(clubA.id, 'horse', 'horse-1', { name: 'Aurora', breed: 'Thoroughbred', gender: 'Mare', stableNumber: 'A-03', ownerName: 'Priya Shah', ownerContact: '+91 90000 00002', status: 'Active', passportNumber: 'HRD-1001' }),
+  record(clubA.id, 'horse', 'horse-1', { name: 'Aurora', breed: 'Thoroughbred', gender: 'Mare', stableNumber: 'A-03', ownerName: 'Priya Shah', ownerContact: '+91 90000 00002', status: 'Active', passportNumber: 'HRD-1001',trainingLevel:'Novice',workloadLimit:'Light',location:'North yard' }),
   record(clubA.id, 'horse', 'horse-2', { name: 'Atlas', breed: 'Warmblood', gender: 'Gelding', stableNumber: 'A-07', status: 'Active' }),
   record(clubB.id, 'horse', 'horse-1', { name: 'Comet', breed: 'Warmblood', gender: 'Gelding', status: 'Active' }),
   record(clubA.id, 'careTeam', 'care-1', { horseId: 'horse-1', staffId: 'employee-0', role: 'Stable Manager', isActive: true, staff: { fullName: 'Asha Menon' } }),
@@ -37,6 +38,8 @@ export const records: SourceRecord[] = [
   record(clubA.id, 'consumption', 'day:2026-10-11:oats', { kind: 'day', date: '2026-10-11', feedType: 'oats', quantity: 2 }),
   record(clubA.id, 'consumption', 'horse:horse-1:oats', { kind: 'horse', horseId: 'horse-1', horseName: 'Aurora', feedType: 'oats', quantity: 2 }),
   record(clubA.id, 'health', 'health-1', { horseId: 'horse-1', recordType: 'Check-up', description: 'Routine examination', date: '2026-10-11T00:00:00.000Z', documents: 'https://example.com/health.pdf' }),
+  record(clubA.id, 'feedPlan', 'plan-1', {horseId:'horse-1',date:'2026-10-11',temporaryMenuName:'Recovery menu',oats:2,notes:'Fixture feed plan'}),
+  record(clubA.id, 'groceryUsage', 'usage-1', {itemName:'Rice tracker',category:'FOOD ITEMS - RESTAURANT',unit:'kg',month:10,year:2026,openingStock:10,purchaseStock:5,w1Received:5,w2Received:0,w3Received:0,w4Received:0,w1Used:2,w2Used:1,w3Used:0,w4Used:0,monthlyBalance:12}),
 ];
 export const dashboard: Dashboard = {
   clubs: [clubA, clubB], records, catalog: catalog as Dashboard['catalog'],

@@ -740,6 +740,40 @@
     "reason": "Not reviewed for HRD; never requested."
   },
   {
+    "path": "/api/integrations/grocery-usage",
+    "methods": [
+      "GET"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "groceryUsage"
+  },
+  {
+    "path": "/api/integrations/horse-feed-plans",
+    "methods": [
+      "GET"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "feedPlan"
+  },
+  {
+    "path": "/api/integrations/manifest",
+    "methods": [
+      "GET"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only."
+  },
+  {
+    "path": "/api/integrations/token",
+    "methods": [
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Reviewed credential exchange only; never mirrored or probed as a data route."
+  },
+  {
     "path": "/api/lesson-packages",
     "methods": [
       "GET",

@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { db } from './db';
 import { decryptToken,tokenExpiry } from './crypto';
-import { EfmError,readEfm,type EfmRead } from './efm';
+import { EfmError,readEfm,isIntegrationKey,type EfmRead } from './efm';
+import { integrationManifest } from './manifest';
 import { arrayResponse,normalize,normalizeConsumption,object } from './normalize';
 import { replaceDataset,routeCheck } from './store';
 import type { EntityType } from '../../../shared/types';
@@ -28,20 +29,30 @@ export async function testConnection(clubId:string,read:EfmRead=readEfm) {
   const {rows}=await db().query('SELECT * FROM hrd_clubs WHERE id=$1',[clubId]); const club=rows[0];
   if(!club||!club.encrypted_token||club.status==='disconnected') throw new Error('Club is not connected');
   const token=decryptToken(club.encrypted_token,clubId); const version=club.credential_version;
-  const expiry=tokenExpiry(token);if(expiry&&expiry.getTime()<=Date.now()) { await markCredentialRequired(clubId,version);throw new EfmError(401,0,'credential_required','Replace the expired EFM access token.'); }
+  let checkedPath='/api/auth/me';
   try {
+    const expiry=tokenExpiry(token);if(expiry&&expiry.getTime()<=Date.now()) throw new EfmError(401,0,'credential_required','Replace the expired EFM access token.');
     const result=await read(club.base_url,token,'/api/auth/me');const me=object(result.body);
     if(typeof me.id!=='string'||me.isApproved!==true) throw new EfmError(403,result.latencyMs,'denied','An existing approved EFM account is required.');
     await routeCheck(clubId,'/api/auth/me','ok',result.status,result.latencyMs,version);
+    if(isIntegrationKey(token)) {
+      checkedPath='/api/integrations/manifest';
+      const manifest=await read(club.base_url,token,'/api/integrations/manifest');
+      const parsed=integrationManifest.safeParse(manifest.body);
+      if(!parsed.success) throw new EfmError(manifest.status,manifest.latencyMs,'error','EFM route manifest is not compatible with HRD.');
+      await db().query("UPDATE hrd_clubs SET route_catalog=$3 WHERE id=$1 AND credential_version=$2 AND status!='disconnected'",[clubId,version,JSON.stringify(parsed.data.routes)]);
+      await routeCheck(clubId,'/api/integrations/manifest','ok',manifest.status,manifest.latencyMs,version);
+    }
     // Validation never enables scheduling; the admin explicitly activates after reconciliation.
     await db().query('UPDATE hrd_clubs SET validated_at=now() WHERE id=$1 AND credential_version=$2 AND status!=\'disconnected\'',[clubId,version]);
     return {verified:true,account:{name:typeof me.fullName==='string'?me.fullName:null},message:'Connection verified. Run a reconciliation sync before activation.'};
   }catch(error) {
+    await db().query("UPDATE hrd_clubs SET validated_at=NULL WHERE id=$1 AND credential_version=$2",[clubId,version]);
     if(error instanceof EfmError) {
       const invalid=error.category==='credential_required'||error.category==='denied';
-      await routeCheck(clubId,'/api/auth/me',invalid?'credential_required':error.category,error.status,error.latencyMs,version);
+      await routeCheck(clubId,checkedPath,invalid?'credential_required':error.category,error.status,error.latencyMs,version);
       if(invalid) await markCredentialRequired(clubId,version);
-    }
+    }else await routeCheck(clubId,checkedPath,'error',null,0,version);
     throw error;
   }
 }
@@ -57,9 +68,17 @@ export async function syncClub(clubId:string,options:{read?:EfmRead;pilot?:boole
 async function runLocked(clubId:string,lock:PoolClient,read:EfmRead,pilot:boolean) {
   const club=(await lock.query('SELECT * FROM hrd_clubs WHERE id=$1',[clubId])).rows[0];
   if(!club||!club.encrypted_token||club.status==='disconnected'||(!pilot&&club.status!=='active')) return {state:'skipped',datasets:{}};
-  await testConnection(clubId,read);
-  const token=decryptToken(club.encrypted_token,clubId); const version=club.credential_version;const id=randomUUID();
+  const version=club.credential_version;const id=randomUUID();
   await lock.query("INSERT INTO hrd_sync_runs(id,club_id,state) VALUES($1,$2,'running')",[id,clubId]);
+  let token:string;
+  try {
+    await testConnection(clubId,read);
+    token=decryptToken(club.encrypted_token,clubId);
+  }catch(error) {
+    const connection=error instanceof EfmError?error.category:'error';
+    await lock.query("UPDATE hrd_sync_runs SET state='error',datasets=$2,finished_at=now() WHERE id=$1",[id,JSON.stringify({connection})]);
+    throw error;
+  }
   const datasets:Record<string,string>={};let stop=false;
   const checked:EfmRead=async(base,tok,path,query)=>{
     try { const result=await read(base,tok,path,query);await routeCheck(clubId,path,'ok',result.status,result.latencyMs,version);return result; }
@@ -79,7 +98,9 @@ async function runLocked(clubId:string,lock:PoolClient,read:EfmRead,pilot:boolea
     {type:'medicine',fetch:async()=>arrayResponse((await checked(club.base_url,token,'/api/medicine-logs')).body)},
     {type:'feedInventory',fetch:async()=>arrayResponse((await checked(club.base_url,token,'/api/feed-inventory')).body)},
     {type:'consumption',fetch:async()=>(await checked(club.base_url,token,'/api/feed-inventory/consumption-report',{startDate:'2000-01-01',endDate:new Date().toISOString().slice(0,10)})).body},
-    {type:'grocery',fetch:async()=>arrayResponse((await checked(club.base_url,token,'/api/groceries-inventory')).body)}
+    {type:'grocery',fetch:async()=>arrayResponse((await checked(club.base_url,token,'/api/groceries-inventory')).body)},
+    {type:'feedPlan',fetch:()=>paginated(checked,club.base_url,token,'/api/integrations/horse-feed-plans',500)},
+    {type:'groceryUsage',fetch:()=>paginated(checked,club.base_url,token,'/api/integrations/grocery-usage',500)}
   ];
   try {
     for(const job of jobs) {

@@ -1,0 +1,1242 @@
+[
+  {
+    "path": "/api/accident-reports",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/aicavalli-mis",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/aicavalli-mis/expenses",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/aicavalli-mis/expenses/[id]",
+    "methods": [
+      "DELETE"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/aicavalli-mis/revenue",
+    "methods": [
+      "DELETE",
+      "GET"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/aicavalli-mis/sales",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/aicavalli-mis/sales/[date]",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/approvals",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/attendance",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/attendance/daily",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/attendance/digital",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/attendance/mark-team",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/attendance/personal",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/attendance/team",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/attendance/team-members",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/audit-logs",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/auth/forgot-password",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/auth/google",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/auth/google-test",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/auth/login",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/auth/me",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only."
+  },
+  {
+    "path": "/api/auth/profile",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/auth/resend-verification",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/auth/reset-password",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/auth/signup",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/auth/verify-email",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/bookings/accommodation-reminders",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/bookings/approve",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/bookings/clients",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/bookings/occupancy",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/cutleries-inventory",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "PATCH",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/eirs",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/eirs/[id]",
+    "methods": [
+      "DELETE",
+      "OPTIONS",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/eirs/invoice/generate",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/employees",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "employee"
+  },
+  {
+    "path": "/api/employees/[id]",
+    "methods": [
+      "DELETE",
+      "GET"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "employee"
+  },
+  {
+    "path": "/api/employees/[id]/approve",
+    "methods": [
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/employees/all",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/employees/profile-update",
+    "methods": [
+      "OPTIONS",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/expenses",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/expenses/[id]",
+    "methods": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/extra-horses-register",
+    "methods": [
+      "GET",
+      "PATCH",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/farrier-inventory",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "POST",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/farrier-shoeing",
+    "methods": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/farrier-shoeing/reminders",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/feed-inventory",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "PATCH",
+      "POST",
+      "PUT"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "feedInventory"
+  },
+  {
+    "path": "/api/feed-inventory/consumption-report",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "consumption"
+  },
+  {
+    "path": "/api/feed-inventory/recalculate",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/fines",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/fines/[id]",
+    "methods": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/gate-attendance",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/gate-entry/[entryId]",
+    "methods": [
+      "OPTIONS",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/gate-entry/[entryId]/exit",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/gate-entry/break",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/gate-entry/entry",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/gate-entry/register",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/grass-bedding",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "POST",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/groceries-inventory",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "PATCH",
+      "POST",
+      "PUT"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "grocery"
+  },
+  {
+    "path": "/api/grocery-tracker",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "PATCH",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Read can create missing monthly tracker rows."
+  },
+  {
+    "path": "/api/grooming/reports",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/grooming/worksheet",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/grooming/worksheet/[id]",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/health",
+    "methods": [
+      "GET"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/health-records",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "health"
+  },
+  {
+    "path": "/api/horse-care-team",
+    "methods": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "careTeam"
+  },
+  {
+    "path": "/api/horse-feeds",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Read can create expired-menu notifications."
+  },
+  {
+    "path": "/api/horse-feeds/[id]",
+    "methods": [
+      "DELETE",
+      "OPTIONS",
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/horse-feeds/summary",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Read can create expired-menu notifications."
+  },
+  {
+    "path": "/api/horses",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "horse"
+  },
+  {
+    "path": "/api/horses/[id]",
+    "methods": [
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Supports updates only; no read method."
+  },
+  {
+    "path": "/api/housekeeping-inventory",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "POST",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/inspections",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/inspections/[id]",
+    "methods": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/instructor-horses",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/instructor-incentives",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/instructor-incentives/[id]",
+    "methods": [
+      "DELETE",
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/instructor-incentives/analytics",
+    "methods": [
+      "GET"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/instructor-incentives/summary",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/integrations/grocery-usage",
+    "methods": [
+      "GET"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "groceryUsage"
+  },
+  {
+    "path": "/api/integrations/horse-feed-plans",
+    "methods": [
+      "GET"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "feedPlan"
+  },
+  {
+    "path": "/api/integrations/manifest",
+    "methods": [
+      "GET"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only."
+  },
+  {
+    "path": "/api/integrations/token",
+    "methods": [
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Reviewed credential exchange only; never mirrored or probed as a data route."
+  },
+  {
+    "path": "/api/lesson-packages",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/lesson-packages/[id]",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "PATCH",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/livery-bill",
+    "methods": [
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/lookups/[type]",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/lookups/[type]/[id]",
+    "methods": [
+      "DELETE",
+      "OPTIONS",
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/medicine-inventory",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "PATCH",
+      "POST",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/medicine-inventory/initialize-month",
+    "methods": [
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/medicine-logs",
+    "methods": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "medicine"
+  },
+  {
+    "path": "/api/medicine-logs/[id]",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/medicine-logs/[id]/approve",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/medicine-logs/[id]/reject",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/medicine-logs/my-logs",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/medicine-logs/pending",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/meetings",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/meetings/[id]",
+    "methods": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/meetings/[id]/mom",
+    "methods": [
+      "GET",
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/meetings/[id]/participants",
+    "methods": [
+      "DELETE",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/memberships",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/memberships/[id]",
+    "methods": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/memberships/search",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/notifications",
+    "methods": [
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/notifications/[id]/read",
+    "methods": [
+      "OPTIONS",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/notifications/mark-all-read",
+    "methods": [
+      "OPTIONS",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/notifications/push-subscribe",
+    "methods": [
+      "DELETE",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/notifications/stream",
+    "methods": [
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/notifications/unread-count",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/notifications/vapid-key",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions",
+    "methods": [
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions/config",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions/role-defaults",
+    "methods": [
+      "GET"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions/roles/[role]",
+    "methods": [
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions/task-permissions",
+    "methods": [
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions/v2/employees/[id]",
+    "methods": [
+      "GET",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions/v2/features",
+    "methods": [
+      "GET",
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions/v2/nav",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions/v2/roles",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/permissions/v2/roles/[id]",
+    "methods": [
+      "DELETE",
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/reports",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/round-checks",
+    "methods": [
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/settings",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/stock-tracker",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "PATCH",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Read can create missing monthly tracker rows."
+  },
+  {
+    "path": "/api/tack-inventory",
+    "methods": [
+      "DELETE",
+      "GET",
+      "OPTIONS",
+      "POST",
+      "PUT"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/tasks",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/tasks/[id]",
+    "methods": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/tasks/[id]/start",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/tasks/[id]/submit-completion",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/tasks/my-tasks",
+    "methods": [
+      "See source"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/upload",
+    "methods": [
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/visitors",
+    "methods": [
+      "GET",
+      "OPTIONS",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  },
+  {
+    "path": "/api/work-records",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "safe": false,
+    "reason": "Not reviewed for HRD; never requested."
+  }
+]

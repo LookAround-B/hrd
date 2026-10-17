@@ -5,10 +5,10 @@ import type { Club, Dashboard, EntityType, RouteCheck, SourceRecord,RouteDefinit
 import type { Normalized } from './normalize';
 import catalog from '../../../shared/route-catalog.json';
 export const clubSelect=`SELECT c.*, (SELECT count(*)::int FROM hrd_records r WHERE r.club_id=c.id AND r.entity_type='employee') employee_count,
-  (SELECT count(*)::int FROM hrd_records r WHERE r.club_id=c.id AND r.entity_type='horse') horse_count FROM hrd_clubs c`;
+  (SELECT count(*)::int FROM hrd_records r WHERE r.club_id=c.id AND r.entity_type='horse') horse_count, (SELECT state FROM hrd_sync_runs s WHERE s.club_id=c.id ORDER BY s.started_at DESC LIMIT 1) last_sync_state FROM hrd_clubs c`;
 const iso=(v:Date|null)=>v?.toISOString()||null;
 export function publicClub(r: Record<string,any>): Club {
-  return {id:r.id,name:r.name,brief:r.brief,baseUrl:r.base_url,authorisation:r.authorisation,issuer:r.issuer,collectedAt:iso(r.collected_at)!,credentialMask:r.credential_mask,credentialExpiresAt:iso(r.credential_expires_at),status:r.status,validatedAt:iso(r.validated_at),lastSuccessAt:iso(r.last_success_at),disconnectedAt:iso(r.disconnected_at),createdAt:iso(r.created_at)!,employeeCount:r.employee_count,horseCount:r.horse_count,stale:!r.last_success_at||Date.now()-r.last_success_at.getTime()>900000};
+  return {id:r.id,name:r.name,brief:r.brief,baseUrl:r.base_url,authorisation:r.authorisation,issuer:r.issuer,scopeNotes:r.scope_notes||'',rateLimitNotes:r.rate_limit_notes||'',routeCatalog:r.route_catalog||null,collectedAt:iso(r.collected_at)!,credentialMask:r.credential_mask,credentialExpiresAt:iso(r.credential_expires_at),status:r.status,validatedAt:iso(r.validated_at),lastSuccessAt:iso(r.last_success_at),disconnectedAt:iso(r.disconnected_at),createdAt:iso(r.created_at)!,employeeCount:r.employee_count,horseCount:r.horse_count,stale:!r.validated_at||r.status==='credential_required'||['partial','error'].includes(r.last_sync_state)||!r.last_success_at||r.last_success_at<r.collected_at||Date.now()-r.last_success_at.getTime()>900000};
 }
 export async function dashboard(): Promise<Dashboard> {
   // One read snapshot prevents mixing a new club count with the preceding dataset.

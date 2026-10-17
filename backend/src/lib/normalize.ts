@@ -3,12 +3,14 @@ export type Normalized = { sourceId: string; data: JsonRecord };
 export const feedColumns=['sports','balance','growth','oats','barley','soya','linseed','bran','salt','dcp','epsom','riceBranOil','heylage','lucerne','electrolyte','diggyMax','coolMix'];
 const fields: Record<Exclude<EntityType,'consumption'>,string[]> = {
   employee:['id','fullName','email','designation','department','phoneNumber','employmentStatus','profileImage','shiftTiming','isApproved'],
-  horse:['id','name','gender','dateOfBirth','breed','color','height','age','stableNumber','profileImage','status','discipline','ownerName','ownerContact','privateEntryAt','privateExitAt','passportNumber','supervisorId'],
+  horse:['id','name','gender','dateOfBirth','breed','color','height','age','stableNumber','profileImage','status','discipline','trainingLevel','workloadLimit','location','ownerName','ownerContact','privateEntryAt','privateExitAt','passportNumber','supervisorId'],
   careTeam:['id','horseId','staffId','role','isActive','assignedDate'],
   health:['id','horseId','recordType','description','date','nextDueDate','documents'],
   medicine:['id','horseId','medicineName','quantity','unit','timeAdministered','approvalStatus','notes'],
   feedInventory:['id','feedType','month','year','unitsBrought','openingStock','totalUsed','unitsLeft','unit','purchaseDate','expiryDate','nextOrderDate','vendorName','notes'],
-  grocery:['id','name','quantity','unit','purchaseDate','expiryDate','description']
+  grocery:['id','name','quantity','unit','purchaseDate','expiryDate','description'],
+  feedPlan:['id','horseId','date','notes','temporaryMenuName','menuStartAt','menuEndAt',...feedColumns],
+  groceryUsage:['id','itemKey','itemName','category','unit','month','year','openingStock','purchaseStock','monthlyBalance','remarks','w1Received','w1Used','w2Received','w2Used','w3Received','w3Used','w4Received','w4Used']
 };
 export function object(value: unknown): JsonRecord {
   if(!value || typeof value!=='object' || Array.isArray(value)) throw new Error('Invalid EFM object');

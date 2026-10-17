@@ -3,14 +3,15 @@ import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { audit,adminEmails,HttpError,login,logout,requireSession,rateLimit } from '../../lib/auth';
 import { db,transaction } from '../../lib/db';
-import { encryptToken,tokenExpiry } from '../../lib/crypto';
+import { encryptToken,tokenExpiry,hash } from '../../lib/crypto';
 import { approvedBaseUrl,EfmError } from '../../lib/efm';
 import { dashboard } from '../../lib/store';
 import { syncClub,testConnection } from '../../lib/sync';
 
 export const config={api:{bodyParser:{sizeLimit:'32kb'}}};
 const token=z.string().trim().min(20).max(10000).regex(/^[A-Za-z0-9._~-]+$/);
-const clubInput=z.object({name:z.string().trim().min(1).max(150),brief:z.string().trim().max(1000).default(''),baseUrl:z.string().max(300),token,authorisation:z.string().trim().min(5).max(1000),issuer:z.string().trim().min(2).max(150),termsConfirmed:z.literal(true)});
+const credentialMetadata={scopeNotes:z.string().trim().max(1000).default(''),rateLimitNotes:z.string().trim().max(1000).default('')};
+const clubInput=z.object({name:z.string().trim().min(1).max(150),brief:z.string().trim().max(1000).default(''),baseUrl:z.string().max(300),token,authorisation:z.string().trim().min(5).max(1000),issuer:z.string().trim().min(2).max(150),termsConfirmed:z.literal(true),...credentialMetadata});
 const uuid=z.string().uuid();
 function method(req:NextApiRequest,expected:string) { if(req.method!==expected) throw new HttpError(405,'Method not allowed.'); }
 
@@ -29,7 +30,7 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
     if(path==='clubs') {
       method(req,'POST');await rateLimit(`onboard:${user.email}`,10,60);const input=clubInput.parse(req.body);const base=approvedBaseUrl(input.baseUrl).origin;const id=randomUUID();
       await transaction(async client=>{
-        await client.query(`INSERT INTO hrd_clubs(id,name,brief,base_url,authorisation,issuer,encrypted_token,credential_expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[id,input.name,input.brief,base,input.authorisation,input.issuer,encryptToken(input.token,id),tokenExpiry(input.token)]);
+        await client.query(`INSERT INTO hrd_clubs(id,name,brief,base_url,authorisation,issuer,encrypted_token,credential_expires_at,scope_notes,rate_limit_notes,credential_fingerprint) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[id,input.name,input.brief,base,input.authorisation,input.issuer,encryptToken(input.token,id),tokenExpiry(input.token),input.scopeNotes,input.rateLimitNotes,hash(input.token)]);
         await audit(user.email,'club_added',id,{termsConfirmed:true},client);
       });return res.status(201).json({id});
     }
@@ -47,12 +48,12 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
       const locked=(await client.query('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS acquired',[id])).rows[0].acquired;
       if(!locked) throw new HttpError(409,'A sync is running. Try again after it finishes.');
       if(action==='credential') {
-        const input=z.object({token,issuer:z.string().trim().min(2).max(150),authorisation:z.string().trim().min(5).max(1000)}).parse(req.body);
-        await client.query("UPDATE hrd_clubs SET encrypted_token=$2,issuer=$3,authorisation=$4,collected_at=now(),credential_expires_at=$5,credential_version=credential_version+1,validated_at=NULL,status='pending',disconnected_at=NULL WHERE id=$1",[id,encryptToken(input.token,id),input.issuer,input.authorisation,tokenExpiry(input.token)]);
+        const input=z.object({token,issuer:z.string().trim().min(2).max(150),authorisation:z.string().trim().min(5).max(1000),...credentialMetadata}).parse(req.body);
+        await client.query("UPDATE hrd_clubs SET encrypted_token=$2,issuer=$3,authorisation=$4,collected_at=now(),credential_expires_at=$5,scope_notes=$6,rate_limit_notes=$7,credential_fingerprint=$8,credential_version=credential_version+1,validated_at=NULL,route_catalog=NULL,status='pending',disconnected_at=NULL WHERE id=$1",[id,encryptToken(input.token,id),input.issuer,input.authorisation,tokenExpiry(input.token),input.scopeNotes,input.rateLimitNotes,hash(input.token)]);
         await client.query('DELETE FROM hrd_route_checks WHERE club_id=$1',[id]);await audit(user.email,'club_credential',id,{},client);return {ok:true,message:'Token replaced. Test and reconcile the connection before activation.'};
       }
       if(action==='disconnect') {
-        await client.query("UPDATE hrd_clubs SET status='disconnected',disconnected_at=now(),encrypted_token=NULL,validated_at=NULL,credential_version=credential_version+1 WHERE id=$1",[id]);await audit(user.email,'club_disconnect',id,{},client);return {ok:true};
+        await client.query("UPDATE hrd_clubs SET status='disconnected',disconnected_at=now(),encrypted_token=NULL,credential_fingerprint=NULL,validated_at=NULL,credential_version=credential_version+1 WHERE id=$1",[id]);await audit(user.email,'club_disconnect',id,{},client);return {ok:true};
       }
       if(action==='activate') {
         z.object({reconciled:z.literal(true)}).parse(req.body);
@@ -66,6 +67,7 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
     });
     return res.status(200).json(result);
   }catch(error) {
+    if(error&&typeof error==='object'&&'code' in error&&error.code==='23505'&&'constraint' in error&&error.constraint==='hrd_clubs_credential_fingerprint') return res.status(409).json({error:'Each connected club requires its own EFM credential. This credential is already in use.'});
     if(error instanceof HttpError) {if(error.status===429)res.setHeader('Retry-After','60');return res.status(error.status).json({error:error.message});}
     if(error instanceof z.ZodError) return res.status(400).json({error:'Check the required fields and authorisation confirmations.'});
     if(error instanceof EfmError) return res.status(error.category==='credential_required'?409:502).json({error:error.message,category:error.category});
