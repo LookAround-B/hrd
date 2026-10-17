@@ -1,8 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "installCommand": "echo prebuilt: dependencies come from the hrd workspace install",
-  "buildCommand": "next build --webpack",
-  "regions": ["bom1"],
-  "crons": [{ "path": "/api/cron/sync", "schedule": "0 3 * * *" }]
+  "installCommand": "cd .. && npm ci --include=dev",
+  "buildCommand": "npm run build",
+  "regions": [
+    "bom1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/sync",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }
