@@ -1,0 +1,28 @@
+name: HRD scheduled sync
+
+# Vercel Hobby cron runs at most daily, so this triggers HRD's protected sync endpoint every 5 minutes.
+# GitHub may delay scheduled runs under load; HRD flags data older than 15 minutes as stale.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: hrd-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Trigger sync
+        env:
+          CRON_SECRET: ${{ secrets.HRD_CRON_SECRET }}
+          SYNC_URL: ${{ vars.HRD_SYNC_URL || 'https://hrd-api.vercel.app/api/cron/sync' }}
+        run: |
+          status=$(curl -sS -m 320 -o response.json -w '%{http_code}' -H "Authorization: Bearer ${CRON_SECRET}" "$SYNC_URL")
+          cat response.json; echo
+          if [ "$status" != "200" ]; then echo "::error::HRD sync returned HTTP $status"; exit 1; fi
