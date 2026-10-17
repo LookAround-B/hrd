@@ -117,6 +117,25 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
     const events=(await api('audit')).body.map((r:{action:string})=>r.action);
     expect(events).toContain('login_success');expect(events).toContain('logout');
   });
+  it('demo sign-in is off by default, verifies phone and code, locks out guessing and ends when disabled',async()=>{
+    expect((await api('auth/demo',{phone:'9000000001',code:'demo-code-123'})).code).toBe(404);
+    process.env.DEMO_LOGIN_PHONE='+91 90000 00001';process.env.DEMO_LOGIN_CODE='demo-code-123';process.env.DEMO_LOGIN_UNTIL=new Date(Date.now()+3600000).toISOString();
+    try {
+      expect((await api('config')).body.demoLogin).toBe(true);
+      expect((await api('auth/demo',{phone:'9000000001',code:'demo-code-123'},{origin:'https://evil.test'})).code).toBe(403);
+      expect((await api('auth/demo',{phone:'9000000001',code:'wrong-code'})).code).toBe(401);
+      const ok=await api('auth/demo',{phone:'90000 00001',code:'demo-code-123'});expect(ok.code).toBe(200);
+      const token=/hrd_session=([a-f0-9]{64});/.exec(ok.headers['Set-Cookie'])![1];
+      expect(new Date(ok.body.expiresAt).getTime()).toBeLessThanOrEqual(Date.parse(process.env.DEMO_LOGIN_UNTIL));
+      expect((await api('dashboard',undefined,{session:token})).code).toBe(200);
+      for(let i=0;i<10;i++) await api('auth/demo',{phone:'9000000001',code:`guess-${i}`});
+      expect((await api('auth/demo',{phone:'9000000001',code:'demo-code-123'})).code).toBe(429);
+      delete process.env.DEMO_LOGIN_CODE;
+      expect((await api('dashboard',undefined,{session:token})).code).toBe(401);
+      const events=(await api('audit')).body.map((r:{action:string})=>r.action);
+      expect(events).toContain('demo_login_success');expect(events).toContain('demo_login_failed');
+    } finally { delete process.env.DEMO_LOGIN_PHONE;delete process.env.DEMO_LOGIN_CODE;delete process.env.DEMO_LOGIN_UNTIL; }
+  });
   it('denies unapproved identities, unverified emails and repeated login attempts',async()=>{
     state.email='outsider@example.com';expect((await api('auth/google',{credential:'fixture'})).code).toBe(403);
     state.email='hrd-admin@example.com';state.verified=false;expect((await api('auth/google',{credential:'fixture'})).code).toBe(403);

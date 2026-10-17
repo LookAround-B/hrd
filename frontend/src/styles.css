@@ -18,3 +18,7 @@
 .sync-run h3{margin:0;font-size:15px}
 .sync-run>.muted{font-size:12px;margin:10px 0 16px}
 @media(max-width:760px){.sync-run{padding:18px}.sync-run>header{align-items:flex-start}}
+
+.demo-login { display: grid; gap: 12px; margin-top: 16px; }
+.demo-login label { display: grid; gap: 6px; font-size: 14px; }
+.demo-login input { width: 100%; }

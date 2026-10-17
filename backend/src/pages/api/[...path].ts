@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
-import { audit,adminEmails,HttpError,login,logout,requireSession,rateLimit } from '../../lib/auth';
+import { audit,adminEmails,demoLogin,HttpError,login,loginDemo,logout,requireSession,rateLimit } from '../../lib/auth';
 import { db,transaction } from '../../lib/db';
 import { encryptToken,tokenExpiry,hash } from '../../lib/crypto';
 import { approvedBaseUrl,EfmError } from '../../lib/efm';
@@ -20,8 +20,9 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
   const path=(Array.isArray(req.query.path)?req.query.path:[]).join('/');
   try {
     if(path==='health') {method(req,'GET');await db().query('SELECT 1');return res.status(200).json({status:'ok'});}
-    if(path==='config') {method(req,'GET');return res.status(200).json({googleClientId:process.env.GOOGLE_CLIENT_ID||null,authReady:!!process.env.GOOGLE_CLIENT_ID&&adminEmails().length>0&&!!process.env.APP_ORIGIN});}
+    if(path==='config') {method(req,'GET');return res.status(200).json({googleClientId:process.env.GOOGLE_CLIENT_ID||null,authReady:!!process.env.GOOGLE_CLIENT_ID&&adminEmails().length>0&&!!process.env.APP_ORIGIN,demoLogin:demoLogin().enabled&&!!process.env.APP_ORIGIN});}
     if(path==='auth/google') {method(req,'POST');return res.status(200).json(await login(req,res));}
+    if(path==='auth/demo') {method(req,'POST');return res.status(200).json(await loginDemo(req,res));}
     const user=await requireSession(req,req.method!=='GET');
     if(path==='auth/session') {method(req,'GET');return res.status(200).json(user);}
     if(path==='auth/logout') {method(req,'POST');await logout(req,res,user.email);return res.status(200).json({ok:true});}

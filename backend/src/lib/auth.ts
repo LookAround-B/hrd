@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { OAuth2Client } from 'google-auth-library';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { db,transaction } from './db';
@@ -27,12 +27,51 @@ export function sessionCookie(token: string, clear = false): string {
   return `hrd_session=${clear ? '' : token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${clear ? 0 : 43200}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
 }
 function sessionToken(req: NextApiRequest): string { return req.cookies.hrd_session || ''; }
+// Temporary demo access (phone + access code) until Google sign-in is configured for every admin.
+// Credentials live only in server env; access ends at DEMO_LOGIN_UNTIL or as soon as the env is removed.
+export const DEMO_IDENTITY = 'demo-admin';
+export function demoLogin() {
+  const phone = (process.env.DEMO_LOGIN_PHONE || '').replace(/\D/g, '');
+  const code = process.env.DEMO_LOGIN_CODE || '';
+  const until = Date.parse(process.env.DEMO_LOGIN_UNTIL || '');
+  return { enabled: phone.length >= 10 && code.length >= 8 && Number.isFinite(until) && until > Date.now(), phone, code, until };
+}
+function allowedIdentity(email: string): boolean {
+  return adminEmails().includes(email.toLowerCase()) || (email === DEMO_IDENTITY && demoLogin().enabled);
+}
+const sameSecret = (a: string, b: string) => timingSafeEqual(Buffer.from(hash(a), 'hex'), Buffer.from(hash(b), 'hex'));
+async function startSession(res: NextApiResponse, email: string, expiresAt: Date, action: string) {
+  const token = randomBytes(32).toString('hex'); const csrf = randomBytes(24).toString('hex');
+  await transaction(async client=>{
+    await client.query('INSERT INTO hrd_admin_sessions(token_hash,email,csrf,expires_at) VALUES($1,$2,$3,$4)', [hash(token),email,csrf,expiresAt]);
+    await audit(email,action,undefined,{},client);
+  });
+  res.setHeader('Set-Cookie',sessionCookie(token));
+  return { email, csrf, expiresAt: expiresAt.toISOString() };
+}
+export async function loginDemo(req: NextApiRequest, res: NextApiResponse) {
+  assertOrigin(req);
+  const demo = demoLogin();
+  if (!demo.enabled) throw new HttpError(404, 'Demo sign-in is not available.');
+  await rateLimit('demo-login', 30, 60);
+  const failures = 'demo-login-failures';
+  const locked = (await db().query('SELECT count FROM hrd_rate_limits WHERE bucket=$1 AND expires_at>now()', [failures])).rows[0]?.count >= 10;
+  if (locked) throw new HttpError(429, 'Too many failed attempts. Try again in 15 minutes.');
+  const phone = typeof req.body?.phone === 'string' ? req.body.phone.replace(/\D/g, '') : '';
+  const code = typeof req.body?.code === 'string' ? req.body.code.trim().slice(0, 200) : '';
+  if (!phone || !code || !sameSecret(phone.slice(-10), demo.phone.slice(-10)) || !sameSecret(code, demo.code)) {
+    await audit('anonymous','demo_login_failed');
+    await rateLimit(failures, 10, 900).catch(() => {});
+    throw new HttpError(401, 'Phone number or access code is incorrect.');
+  }
+  return startSession(res, DEMO_IDENTITY, new Date(Math.min(Date.now()+43200000, demo.until)), 'demo_login_success');
+}
 export async function requireSession(req: NextApiRequest, mutation = false): Promise<SessionUser> {
   const token = sessionToken(req);
   if (!/^[a-f0-9]{64}$/.test(token)) throw new HttpError(401, 'Sign in to HRD to continue.');
   const { rows } = await db().query('SELECT email,csrf,expires_at FROM hrd_admin_sessions WHERE token_hash=$1 AND expires_at>now()', [hash(token)]);
   const row = rows[0];
-  if (!row || !adminEmails().includes(row.email.toLowerCase())) throw new HttpError(401, 'Your HRD session has expired. Sign in again.');
+  if (!row || !allowedIdentity(row.email)) throw new HttpError(401, 'Your HRD session has expired. Sign in again.');
   if (mutation) { assertOrigin(req); if (req.headers['x-hrd-csrf'] !== row.csrf) throw new HttpError(403, 'Session verification failed. Reload the page.'); }
   return { email: row.email, csrf: row.csrf, expiresAt: row.expires_at.toISOString() };
 }
@@ -50,14 +89,7 @@ export async function login(req: NextApiRequest, res: NextApiResponse) {
   try { assertAdminEmail(email, payload?.email_verified === true); }
   catch (error) { await audit('anonymous','login_denied'); throw error; }
   await rateLimit(`google-account:${hash(email)}`, 10, 60);
-  const token = randomBytes(32).toString('hex'); const csrf = randomBytes(24).toString('hex');
-  const expiresAt = new Date(Date.now()+43200000);
-  await transaction(async client=>{
-    await client.query('INSERT INTO hrd_admin_sessions(token_hash,email,csrf,expires_at) VALUES($1,$2,$3,$4)', [hash(token),email,csrf,expiresAt]);
-    await audit(email,'login_success',undefined,{},client);
-  });
-  res.setHeader('Set-Cookie',sessionCookie(token));
-  return { email, csrf, expiresAt: expiresAt.toISOString() };
+  return startSession(res, email, new Date(Date.now()+43200000), 'login_success');
 }
 export async function logout(req: NextApiRequest, res: NextApiResponse, email: string) {
   await transaction(async client=>{
