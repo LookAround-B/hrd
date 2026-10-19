@@ -24,7 +24,10 @@ export const queryAllowList: Record<string, string[]> = {
   '/api/auth/me':[], '/api/employees':['skip','take','includePending'], '/api/horses':['skip','take'],
   '/api/horse-care-team':[], '/api/health-records':['skip','take'], '/api/medicine-logs':[],
   '/api/feed-inventory':[], '/api/feed-inventory/consumption-report':['startDate','endDate'], '/api/groceries-inventory':[],
-  '/api/integrations/horse-feed-plans':['skip','take'], '/api/integrations/grocery-usage':['skip','take'], '/api/integrations/manifest':[]
+  '/api/integrations/horse-feed-plans':['skip','take'], '/api/integrations/grocery-usage':['skip','take'], '/api/integrations/manifest':[],
+  // Requested only after EFM adds them to its integration read allow-list; until then EFM denies them and HRD shows them unavailable.
+  '/api/integrations/horse-profiles':['skip','take'], '/api/farrier-shoeing':[], '/api/inspections':[], '/api/accident-reports':['limit'],
+  '/api/integrations/export':['dataset','skip','take']
 };
 export function approvedPath(path: string): boolean { return path in queryAllowList || /^\/api\/employees\/[a-zA-Z0-9_-]{1,100}$/.test(path); }
 export function efmUrl(base: string,path: string,query: Record<string,string>={}): URL {

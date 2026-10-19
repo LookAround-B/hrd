@@ -8,7 +8,8 @@ const safe = new Map([
   ['/api/medicine-logs','medicine'], ['/api/feed-inventory','feedInventory'],
   ['/api/feed-inventory/consumption-report','consumption'], ['/api/groceries-inventory','grocery'],
   ['/api/integrations/horse-feed-plans','feedPlan'], ['/api/integrations/grocery-usage','groceryUsage'],
-  ['/api/integrations/manifest',undefined]
+  ['/api/integrations/manifest',undefined], ['/api/integrations/horse-profiles','horseProfile'],
+  ['/api/farrier-shoeing','farrier'], ['/api/inspections','inspection'], ['/api/accident-reports','accident']
 ]);
 const sideEffects = new Map([
   ['/api/integrations/token','Reviewed credential exchange only; never mirrored or probed as a data route.'],

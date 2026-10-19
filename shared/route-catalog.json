@@ -5,8 +5,9 @@
       "GET",
       "POST"
     ],
-    "safe": false,
-    "reason": "Not reviewed for HRD; never requested."
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "accident"
   },
   {
     "path": "/api/aicavalli-mis",
@@ -401,8 +402,9 @@
       "GET",
       "POST"
     ],
-    "safe": false,
-    "reason": "Not reviewed for HRD; never requested."
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "farrier"
   },
   {
     "path": "/api/farrier-shoeing/reminders",
@@ -682,8 +684,9 @@
       "GET",
       "POST"
     ],
-    "safe": false,
-    "reason": "Not reviewed for HRD; never requested."
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "inspection"
   },
   {
     "path": "/api/inspections/[id]",
@@ -756,6 +759,15 @@
     "safe": true,
     "reason": "Reviewed GET access only.",
     "type": "feedPlan"
+  },
+  {
+    "path": "/api/integrations/horse-profiles",
+    "methods": [
+      "GET"
+    ],
+    "safe": true,
+    "reason": "Reviewed GET access only.",
+    "type": "horseProfile"
   },
   {
     "path": "/api/integrations/manifest",

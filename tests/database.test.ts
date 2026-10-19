@@ -69,14 +69,25 @@ const transport:EfmTransport=async(url,request)=>{
     case '/api/groceries-inventory': return response([{id:'grocery-1',name:'Fixture groceries',quantity:25,unit:'kg'}]);
     case '/api/integrations/horse-feed-plans': return page([{id:'plan-1',horseId:horse.id,date:'2026-10-01',temporaryMenuName:'Fixture menu',oats:2,notes:'Fixture feed plan'}]);
     case '/api/integrations/grocery-usage': return page([{id:'usage-1',itemName:'Fixture rice',category:'FOOD ITEMS - RESTAURANT',unit:'kg',month:10,year:2026,openingStock:10,purchaseStock:5,w1Received:5,w2Received:0,w3Received:0,w4Received:0,w1Used:2,w2Used:1,w3Used:0,w4Used:0,monthlyBalance:12}]);
+    case '/api/integrations/horse-profiles': return page([{id:horse.id,name:horse.name,microchipNumber:'985000000000001',feiId:'FEI-1',sire:'Fixture sire'}]);
+    case '/api/farrier-shoeing': return response([{id:'farrier-1',horseId:horse.id,shoeingDate:'2026-09-01',nextDueDate:'2026-10-13',numberOfLegs:4,farrier:{id:employee.id,fullName:'Fixture farrier'}}]);
+    case '/api/inspections': return response({inspections:[{id:'inspection-1',horseId:horse.id,round:'Morning',description:'Fixture swelling',location:'Yard',severityLevel:'High',status:'Open',images:['https://example.com/a.jpg']}]});
+    case '/api/accident-reports': return response({data:[{id:'accident-1',horseId:horse.id,accidentDate:'2026-09-02',accidentLocation:'Arena',accidentDetails:'Fixture fall',horseInjured:false}]});
+    case '/api/integrations/export': {
+      const tables:Record<string,Record<string,unknown>[]>={Attendance:[{id:'att-2',employeeId:employee.id,date:'2026-10-02',status:'Present'},{id:'att-1',employeeId:employee.id,date:'2026-10-01',status:'Absent'}],
+        Employee:[{id:employee.id,fullName:employee.fullName,password:'must-never-be-mirrored'}]};
+      const dataset=url.searchParams.get('dataset');
+      if(!dataset) return response({version:1,datasets:Object.entries(tables).map(([name,rows])=>({name,count:rows.length,fields:Object.keys(rows[0])}))});
+      return page(tables[dataset]);
+    }
     default: throw new Error('Unexpected EFM request in integration test');
   }
 };
 
-async function api(path:string,body?:unknown,options:{csrf?:string;origin?:string;session?:string}={}) {
+async function api(path:string,body?:unknown,options:{csrf?:string;origin?:string;session?:string;query?:Record<string,string>}={}) {
   const res={code:200,body:undefined as any,headers:{} as Record<string,string>,
     setHeader(k:string,v:string){this.headers[k]=v;},status(n:number){this.code=n;return this;},json(data:unknown){this.body=data;return this;}};
-  await handler({method:body===undefined?'GET':'POST',query:{path:path.split('/')},body,
+  await handler({method:body===undefined?'GET':'POST',query:{path:path.split('/'),...options.query},body,
     headers:{origin:options.origin??'http://hrd.test','x-hrd-csrf':options.csrf??csrf},
     cookies:{hrd_session:options.session??session}} as unknown as NextApiRequest,res as unknown as NextApiResponse);
   return res;
@@ -99,7 +110,7 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
     await runMigrations();await runMigrations();
   });
   beforeEach(async()=>{
-    await db().query('TRUNCATE hrd_clubs,hrd_records,hrd_route_checks,hrd_sync_runs,hrd_audit_events,hrd_admin_sessions,hrd_rate_limits CASCADE');
+    await db().query('TRUNCATE hrd_clubs,hrd_records,hrd_efm_rows,hrd_efm_datasets,hrd_route_checks,hrd_sync_runs,hrd_audit_events,hrd_admin_sessions,hrd_rate_limits CASCADE');
     await db().query('INSERT INTO hrd_admin_sessions(token_hash,email,csrf,expires_at) VALUES($1,$2,$3,now()+interval \'1 hour\')',[createHash('sha256').update(session).digest('hex'),'hrd-admin@example.com',csrf]);
     revoked=false;deniedRoute='';failRoute='';duplicateEmployee=false;exchanges=0;reads=0;accessTokens.clear();state.reader=createEfmReader(transport);
     state.email='hrd-admin@example.com';state.verified=true;state.invalidLogin=false;
@@ -154,7 +165,7 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
     expect((await reconcile(id)).state).toBe('success');
     const dashboard=await api('dashboard');expect(dashboard.code).toBe(200);
     expect(dashboard.body.clubs[0]).toMatchObject({status:'pending',employeeCount:1,horseCount:1,credentialExpiresAt:null,scopeNotes:'Reviewed read-only HRD datasets',rateLimitNotes:'Fixture limit: 30 token exchanges per minute'});
-    expect([...new Set(dashboard.body.records.map((r:{type:string})=>r.type))].sort()).toEqual(['careTeam','consumption','employee','feedInventory','grocery','health','horse','medicine','feedPlan','groceryUsage'].sort());
+    expect([...new Set(dashboard.body.records.map((r:{type:string})=>r.type))].sort()).toEqual(['careTeam','consumption','employee','feedInventory','grocery','health','horse','medicine','feedPlan','groceryUsage','horseProfile','farrier','inspection','accident'].sort());
     expect(dashboard.body.records.find((r:{type:string})=>r.type==='horse').data.trainingLevel).toBe('Novice');
     expect(dashboard.body.clubs[0].routeCatalog).toEqual(catalog);
     expect(dashboard.body.records.filter((r:{type:string})=>r.type==='consumption')).toHaveLength(2);
@@ -162,6 +173,20 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
     expect((await api(`clubs/${id}/activate`,{reconciled:true})).code).toBe(200);
     expect(await syncAll()).toEqual({clubs:1,failures:0});expect(exchanges).toBe(1);
     expect((await api(`clubs/${id}/status`)).body[0].state).toBe('success');
+  });
+  it('mirrors the full EFM export with search, filters and sort, without credentials',async()=>{
+    const id=await onboard();const result=await reconcile(id);expect(result.datasets.efmExport).toBe('ok:2/2');
+    const list=await api('efm-data',undefined,{query:{clubId:id}});
+    expect(list.body.map((d:{dataset:string;total:number;state:string})=>[d.dataset,d.total,d.state])).toEqual([['Attendance',2,'ok'],['Employee',1,'ok']]);
+    const rows=await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',sort:'date',dir:'desc'}});
+    expect(rows.body.total).toBe(2);expect(rows.body.rows.map((r:{id:string})=>r.id)).toEqual(['att-2','att-1']);
+    expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',search:'absent'}})).body.rows.map((r:{id:string})=>r.id)).toEqual(['att-1']);
+    expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',filters:JSON.stringify({status:'Present'})}})).body.total).toBe(1);
+    expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',filters:JSON.stringify({nope:'x'})}})).code).toBe(400);
+    expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',filters:'{bad'}})).code).toBe(400);
+    expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Missing'}})).code).toBe(404);
+    const stored=JSON.stringify((await db().query('SELECT data FROM hrd_efm_rows WHERE club_id=$1',[id])).rows);
+    expect(stored).not.toContain('must-never-be-mirrored');expect(stored).toContain('Fixture Employee');
   });
   it('pauses on key revocation and preserves the last mirrored data',async()=>{
     const id=await onboard();await reconcile(id);await api(`clubs/${id}/activate`,{reconciled:true});
@@ -226,7 +251,7 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
     const stored=(await db().query('SELECT credential_fingerprint FROM hrd_clubs WHERE id=$1',[id])).rows[0];
     expect(stored.credential_fingerprint).toBe(createHash('sha256').update(permanentKey).digest('hex'));
     expect((await api('dashboard')).body.records).toEqual(before);
-    expect((await db().query('SELECT count(*)::int AS count FROM hrd_migrations')).rows[0].count).toBe(2);
+    expect((await db().query('SELECT count(*)::int AS count FROM hrd_migrations')).rows[0].count).toBe(3);
   });
   it('records connection failures before import, preserves cached data, and recovers on the next sync',async()=>{
     const id=await onboard();await reconcile(id);await api(`clubs/${id}/activate`,{reconciled:true});

@@ -3,10 +3,14 @@ export type Normalized = { sourceId: string; data: JsonRecord };
 export const feedColumns=['sports','balance','growth','oats','barley','soya','linseed','bran','salt','dcp','epsom','riceBranOil','heylage','lucerne','electrolyte','diggyMax','coolMix'];
 const fields: Record<Exclude<EntityType,'consumption'>,string[]> = {
   employee:['id','fullName','email','designation','department','phoneNumber','employmentStatus','profileImage','shiftTiming','isApproved'],
-  horse:['id','name','gender','dateOfBirth','breed','color','height','age','stableNumber','profileImage','status','discipline','trainingLevel','workloadLimit','location','ownerName','ownerContact','privateEntryAt','privateExitAt','passportNumber','supervisorId'],
+  horse:['id','name','gender','dateOfBirth','horseEntryType','breed','color','height','age','stableNumber','profileImage','status','discipline','trainingLevel','workloadLimit','location','ownerName','ownerContact','privateEntryAt','privateExitAt','passportNumber','supervisorId','createdAt','updatedAt'],
+  horseProfile:['id','name','horseEntryType','girthSize','bitSize','rugSize','bridleSize','numnahSize','ueln','microchipNumber','feiId','feiIdExpiry','passportNumber','passportDetails','sire','damsire','leaseStatus','emergencyContact','insuranceDetails','createdAt','updatedAt'],
   careTeam:['id','horseId','staffId','role','isActive','assignedDate'],
   health:['id','horseId','recordType','description','date','nextDueDate','documents'],
-  medicine:['id','horseId','medicineName','quantity','unit','timeAdministered','approvalStatus','notes'],
+  medicine:['id','horseId','jamiedarId','medicineName','diagnosis','quantity','unit','timeAdministered','legs','notes','tat','stockAlert','approvalStatus','approvedById','rejectionReason','approvalDate','createdAt'],
+  farrier:['id','horseId','farrierId','shoeingDate','nextDueDate','shoeChanged','numberOfLegs','clientBought','schoolStock','notes','createdAt'],
+  inspection:['id','jamedarId','round','description','horseId','location','area','inspectedAt','roundsDoneBy','severityLevel','issueType','comments','status','resolutionNotes','resolvedAt','createdAt'],
+  accident:['id','instructorId','horseId','accidentDate','accidentTime','accidentLocation','personName','personAge','horseState','riderGrouping','activityType','competingDiscipline','hardhatCorrect','fallType','riderInjured','medicalAttention','riderRemounted','horseInjured','vetAttentionGiven','accidentDetails','createdAt'],
   feedInventory:['id','feedType','month','year','unitsBrought','openingStock','totalUsed','unitsLeft','unit','purchaseDate','expiryDate','nextOrderDate','vendorName','notes'],
   grocery:['id','name','quantity','unit','purchaseDate','expiryDate','description'],
   feedPlan:['id','horseId','date','notes','temporaryMenuName','menuStartAt','menuEndAt',...feedColumns],
@@ -29,9 +33,17 @@ export function normalize(type: Exclude<EntityType,'consumption'>,records: unkno
     if(type==='health'&&row.horse) data.horse=pick(row.horse,fields.horse);
     if(type==='careTeam') { if(row.staff) data.staff=pick(row.staff,['id','fullName','designation']); if(row.horse) data.horse=pick(row.horse,['id','name','status']); }
     if(type==='employee'&&row.supervisor) data.supervisor=pick(row.supervisor,['id','fullName','designation']);
+    const person=(key:string)=>{if(row[key]&&typeof row[key]==='object') data[key]=pick(row[key],['id','fullName','designation']);};
+    if(type==='horse') person('supervisor');
+    if(type==='medicine') {person('jamedar');person('approvedBy');data.sentTo=strings(row.sentTo);data.photoUrls=strings(row.photoUrls??(row.photoUrl?[row.photoUrl]:[]));}
+    if(type==='farrier') person('farrier');
+    if(type==='inspection') {person('jamedar');person('resolvedBy');data.images=strings(row.images);}
+    if(type==='accident') person('instructor');
     return {sourceId:row.id,data};
   });
 }
+// Short string lists only (photo URLs, recipients); anything else is dropped.
+function strings(value:unknown):string[] {return Array.isArray(value)?value.filter((v):v is string=>typeof v==='string'&&v.length<=2000).slice(0,20):[];}
 export function normalizeConsumption(body: unknown): Normalized[] {
   const root=object(body);const data=object(root.data);const result:Normalized[]=[];
   const sourceTypes=Array.isArray(data.feedTypes)?data.feedTypes.filter((v):v is string=>typeof v==='string'&&/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(v)):[];

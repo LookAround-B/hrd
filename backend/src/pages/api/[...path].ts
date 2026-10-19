@@ -28,6 +28,29 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
     if(path==='auth/logout') {method(req,'POST');await logout(req,res,user.email);return res.status(200).json({ok:true});}
     if(path==='dashboard') {method(req,'GET');return res.status(200).json(await dashboard());}
     if(path==='audit') {method(req,'GET');return res.status(200).json((await db().query('SELECT actor,action,club_id,details,created_at FROM hrd_audit_events ORDER BY created_at DESC LIMIT 100')).rows);}
+    if(path==='efm-data') {
+      method(req,'GET');const clubId=uuid.parse(req.query.clubId);
+      return res.status(200).json((await db().query('SELECT dataset,total,fields,state,synced_at,checked_at FROM hrd_efm_datasets WHERE club_id=$1 ORDER BY dataset',[clubId])).rows);
+    }
+    if(path==='efm-data/rows') {
+      method(req,'GET');
+      const q=z.object({clubId:uuid,dataset:z.string().regex(/^[A-Z][A-Za-z0-9]{0,63}$/),skip:z.coerce.number().int().min(0).max(1000000).default(0),take:z.coerce.number().int().min(1).max(200).default(50),
+        search:z.string().max(200).default(''),sort:z.string().regex(/^[A-Za-z0-9_]{1,100}$/).optional(),dir:z.enum(['asc','desc']).default('asc'),filters:z.string().max(4000).default('{}')}).parse(req.query);
+      const meta=(await db().query('SELECT fields FROM hrd_efm_datasets WHERE club_id=$1 AND dataset=$2',[q.clubId,q.dataset])).rows[0];
+      if(!meta) throw new HttpError(404,'This EFM dataset has not been imported yet.');
+      const fields:string[]=meta.fields;const params:unknown[]=[q.clubId,q.dataset];let where='club_id=$1 AND dataset=$2';
+      if(q.search.trim()) {params.push(`%${q.search.trim().replace(/[\\%_]/g,m=>'\\'+m)}%`);where+=` AND data::text ILIKE $${params.length}`;}
+      // Exact-match column filters, e.g. {"horseId":"…"}; only known fields are accepted.
+      let parsedFilters:unknown;try{parsedFilters=JSON.parse(q.filters);}catch{throw new HttpError(400,'Invalid filters.');}
+      const filters=z.record(z.string(),z.string().max(200)).parse(parsedFilters);
+      for(const [field,value] of Object.entries(filters)) {if(!fields.includes(field)) throw new HttpError(400,'Unknown filter field.');params.push(field,value);where+=` AND data->>$${params.length-1} = $${params.length}`;}
+      const sort=q.sort&&fields.includes(q.sort)?q.sort:null;if(sort) params.push(sort);
+      const order=sort?`data->>$${params.length} ${q.dir==='desc'?'DESC':'ASC'} NULLS LAST, source_id`:'source_id';
+      const total=(await db().query(`SELECT count(*)::int n FROM hrd_efm_rows WHERE ${where}`,sort?params.slice(0,-1):params)).rows[0].n;
+      params.push(q.take,q.skip);
+      const rows=(await db().query(`SELECT source_id,data,synced_at FROM hrd_efm_rows WHERE ${where} ORDER BY ${order} LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows;
+      return res.status(200).json({total,fields,rows:rows.map(r=>({id:r.source_id,data:r.data,syncedAt:r.synced_at}))});
+    }
     if(path==='clubs') {
       method(req,'POST');await rateLimit(`onboard:${user.email}`,10,60);const input=clubInput.parse(req.body);const base=approvedBaseUrl(input.baseUrl).origin;const id=randomUUID();
       await transaction(async client=>{

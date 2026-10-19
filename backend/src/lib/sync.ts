@@ -8,14 +8,15 @@ import { arrayResponse,normalize,normalizeConsumption,object } from './normalize
 import { replaceDataset,routeCheck } from './store';
 import type { EntityType } from '../../../shared/types';
 import { audit } from './auth';
+import { syncExport } from './export';
 
-export async function paginated(read:EfmRead,base:string,token:string,path:string,take:number,extra:Record<string,string>={}):Promise<unknown[]> {
+export async function paginated(read:EfmRead,base:string,token:string,path:string,take:number,extra:Record<string,string>={},limit=50000):Promise<unknown[]> {
   const result:unknown[]=[];let expected:number|undefined;
-  for(let skip=0;skip<=50000;skip+=take) {
+  for(let skip=0;skip<=limit;skip+=take) {
     if(path==='/api/employees'&&skip>10000) throw new Error('EFM employee pagination limit exceeded');
     const page=await read(base,token,path,{...extra,skip:String(skip),take:String(take)});
     const root=object(page.body);const total=object(root.pagination).total;
-    if(typeof total!=='number'||!Number.isInteger(total)||total<0||total>50000) throw new Error('Invalid EFM pagination');
+    if(typeof total!=='number'||!Number.isInteger(total)||total<0||total>limit) throw new Error('Invalid EFM pagination');
     if(expected!==undefined&&total!==expected) throw new Error('EFM dataset changed during pagination');expected=total;
     const records=arrayResponse(page.body);if(records.length>take) throw new Error('Invalid EFM page size');result.push(...records);
     if(result.length===total) return result;
@@ -100,7 +101,12 @@ async function runLocked(clubId:string,lock:PoolClient,read:EfmRead,pilot:boolea
     {type:'consumption',fetch:async()=>(await checked(club.base_url,token,'/api/feed-inventory/consumption-report',{startDate:'2000-01-01',endDate:new Date().toISOString().slice(0,10)})).body},
     {type:'grocery',fetch:async()=>arrayResponse((await checked(club.base_url,token,'/api/groceries-inventory')).body)},
     {type:'feedPlan',fetch:()=>paginated(checked,club.base_url,token,'/api/integrations/horse-feed-plans',500)},
-    {type:'groceryUsage',fetch:()=>paginated(checked,club.base_url,token,'/api/integrations/grocery-usage',500)}
+    {type:'groceryUsage',fetch:()=>paginated(checked,club.base_url,token,'/api/integrations/grocery-usage',500)},
+    {type:'horseProfile',fetch:()=>paginated(checked,club.base_url,token,'/api/integrations/horse-profiles',500)},
+    {type:'farrier',fetch:async()=>arrayResponse((await checked(club.base_url,token,'/api/farrier-shoeing')).body)},
+    {type:'inspection',fetch:async()=>{const body=object((await checked(club.base_url,token,'/api/inspections')).body);if(!Array.isArray(body.inspections)) throw new Error('EFM did not return inspections');return body.inspections;}},
+    // EFM caps this list at 500 newest reports; a full page may be truncated, so fail instead of importing a partial history.
+    {type:'accident',fetch:async()=>{const rows=arrayResponse((await checked(club.base_url,token,'/api/accident-reports',{limit:'500'})).body);if(rows.length>=500) throw new Error('EFM accident reports exceed the 500-record export limit');return rows;}}
   ];
   try {
     for(const job of jobs) {
@@ -109,6 +115,10 @@ async function runLocked(clubId:string,lock:PoolClient,read:EfmRead,pilot:boolea
         await replaceDataset(clubId,job.type,records,version,undefined,pilot);datasets[job.type]=`ok:${records.length}`;
       }catch(error) {datasets[job.type]=error instanceof EfmError?error.category:'error';}
     }
+    if(stop) datasets.efmExport='paused';
+    else try {const result=await syncExport(clubId,version,checked,club.base_url,token,{force:pilot});
+      datasets.efmExport=result.failed?'error':`ok:${result.refreshed}/${result.datasets}`;
+    }catch(error) {datasets.efmExport=error instanceof EfmError?error.category:'error';}
     const state=Object.values(datasets).every(v=>v.startsWith('ok:'))?'success':Object.values(datasets).some(v=>v.startsWith('ok:'))&&Object.values(datasets).every(v=>v.startsWith('ok:')||v==='denied')?'limited':'partial';
     await lock.query('UPDATE hrd_sync_runs SET state=$2,datasets=$3,finished_at=now() WHERE id=$1',[id,state,JSON.stringify(datasets)]);
     if(state==='success'||state==='limited') await lock.query("UPDATE hrd_clubs SET last_success_at=now() WHERE id=$1 AND credential_version=$2 AND status IN ('active','pending')",[clubId,version]);
@@ -118,6 +128,7 @@ async function runLocked(clubId:string,lock:PoolClient,read:EfmRead,pilot:boolea
 export async function maintenance() {
   // Only HRD tables. Remove credentials immediately on disconnect; purge personal data within 30 days.
   await db().query(`DELETE FROM hrd_records WHERE club_id IN (SELECT id FROM hrd_clubs WHERE disconnected_at<=now()-interval '30 days')`);
+  await db().query(`DELETE FROM hrd_efm_rows WHERE club_id IN (SELECT id FROM hrd_clubs WHERE disconnected_at<=now()-interval '30 days')`);
   await db().query("DELETE FROM hrd_route_checks WHERE checked_at<now()-interval '30 days' OR club_id IN (SELECT id FROM hrd_clubs WHERE disconnected_at<=now()-interval '30 days')");
   await db().query("UPDATE hrd_clubs SET issuer='Purged',authorisation='Approval details purged after disconnect',brief='' WHERE disconnected_at<=now()-interval '30 days'");
   await db().query("DELETE FROM hrd_sync_runs WHERE started_at<now()-interval '30 days'");

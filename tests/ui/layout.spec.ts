@@ -14,6 +14,19 @@ async function mockApi(page: Page, options: { signedOut?: boolean; delay?: numbe
       return route.fulfill({ json: dashboard });
     }
     if (path.endsWith('/activate') && options.activationError) return route.fulfill({ status: 409, json: { error: 'Run a fresh reconciliation sync before activating.' } });
+    if (path === '/api/efm-data') return route.fulfill({ json: [
+      { dataset: 'Attendance', total: 2, fields: ['id', 'employeeId', 'date', 'status', 'remarks'], state: 'ok', synced_at: new Date().toISOString(), checked_at: new Date().toISOString() },
+      { dataset: 'GateEntry', total: 0, fields: ['id', 'personName'], state: 'denied', synced_at: null, checked_at: new Date().toISOString() },
+    ] });
+    if (path === '/api/efm-data/rows') {
+      const params = new URL(route.request().url()).searchParams;
+      const rows = [
+        { id: 'att-1', data: { id: 'att-1', employeeId: 'employee-0', date: '2026-10-01T00:00:00.000Z', status: 'Present', remarks: 'On time' }, syncedAt: new Date().toISOString() },
+        { id: 'att-2', data: { id: 'att-2', employeeId: 'employee-1', date: '2026-10-02T00:00:00.000Z', status: 'Absent', remarks: 'Sick leave' }, syncedAt: new Date().toISOString() },
+      ].filter(r => JSON.stringify(r.data).toLowerCase().includes((params.get('search') || '').toLowerCase()));
+      if (params.get('dir') === 'desc') rows.reverse();
+      return route.fulfill({ json: { total: rows.length, fields: ['id', 'employeeId', 'date', 'status', 'remarks'], rows } });
+    }
     if (path === '/api/audit') return route.fulfill({ json: [] });
     if (path.endsWith('/status')) return route.fulfill({json:[{state:'partial',started_at:new Date().toISOString(),finished_at:new Date().toISOString(),datasets:{employee:'ok:25',horse:'ok:2',medicine:'denied',feedPlan:'error'}}]});
     return route.fulfill({ json: { ok: true, state: 'success', datasets: { employee: 'ok:25', horse: 'ok:2' } } });
@@ -46,6 +59,10 @@ test('desktop navigation, filtering, horse detail and map remain usable', async 
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('tab', { name: 'Health', exact: true }).click();
   await expect(page.getByText('Routine examination')).toBeVisible();
+  await page.getByRole('tab', { name: 'Profile', exact: true }).click();
+  await expect(page.getByText('985000000000001')).toBeVisible();
+  await page.getByRole('tab', { name: 'Farrier', exact: true }).click();
+  await expect(page.getByText('Fixture farrier')).toBeVisible();
   await page.getByRole('tab', { name: 'Feed', exact: true }).click();
   await expect(page.getByText('Recovery menu')).toBeVisible();
   await page.getByRole('tab', { name: 'Training', exact: true }).click();
@@ -57,6 +74,66 @@ test('desktop navigation, filtering, horse detail and map remain usable', async 
   await page.getByRole('button', { name: 'Entity Map', exact: true }).click();
   await expect(page.getByRole('img', { name: `Relationships in ${clubA.name}` })).toBeVisible();
   await page.screenshot({ path: 'test-results/ui-map.png', fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test('health tab flags due care and links the guide to the schedule', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await mockApi(page); await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/');
+  await page.getByRole('button', { name: 'Health', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Health', exact: true })).toBeVisible();
+  await expect(page.getByText(/^Overdue \d+ days$/).first()).toBeVisible();
+  await expect(page.getByText(/· Farrier shoeing/).first()).toBeVisible();
+  await expect(page.getByText(/· Medicine log/).first()).toBeVisible();
+  await page.screenshot({ path: 'test-results/ui-health-schedule.png', fullPage: true });
+  await page.getByRole('button', { name: 'Records & treatments' }).click();
+  await expect(page.getByText('Phenylbutazone')).toBeVisible();
+  await expect(page.getByText('Routine deworming')).toBeVisible();
+  await page.getByRole('button', { name: /^Inspections/ }).click();
+  await expect(page.getByText('Swelling on near fore')).toBeVisible();
+  await page.getByRole('button', { name: /^Health records/ }).click();
+  await expect(page.getByText('Ivermectin deworming')).toBeVisible();
+  await page.getByRole('button', { name: 'Care guide' }).click();
+  await page.getByRole('textbox', { name: 'Search care guide' }).fill('glanders');
+  await expect(page.getByText('notifiable in India')).toBeVisible();
+  await page.getByRole('textbox', { name: 'Search care guide' }).fill('');
+  await expect(page.getByText('Total topics: 22 · Showing: 22')).toBeVisible();
+  await page.getByRole('button', { name: 'Expand all' }).click();
+  await expect(page.getByText('UC Davis Equine Center')).toBeVisible();
+  await page.getByRole('button', { name: 'Collapse all' }).click();
+  await page.getByText('Vaccination and preventive health schedule').click();
+  await page.screenshot({ path: 'test-results/ui-health-guide.png', fullPage: true });
+  await page.getByRole('button', { name: /horses? needs? vaccination/ }).click();
+  await expect(page.getByRole('combobox', { name: 'Care' })).toHaveValue('Vaccination');
+  await expect(page.getByText('Atlas', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: 'test-results/ui-mobile-health.png', fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test('EFM data browses every mirrored table with search, sort and row detail', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await mockApi(page); await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/');
+  await page.getByRole('button', { name: 'EFM Data', exact: true }).click();
+  await page.getByLabel('Club', { exact: true }).selectOption(clubA.id);
+  await expect(page.getByRole('heading', { name: 'Attendance' })).toBeVisible();
+  await expect(page.getByText('Asha Menon', { exact: true })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Search EFM rows' }).fill('sick');
+  await expect(page.getByText('1 row', { exact: true })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Search EFM rows' }).fill('');
+  await page.getByRole('button', { name: 'Date', exact: true }).click();
+  await page.getByRole('button', { name: 'Date', exact: true }).click();
+  await expect(page.locator('.efm-table tbody tr').first()).toContainText('Absent');
+  await page.screenshot({ path: 'test-results/ui-efm-data.png', fullPage: true });
+  await page.locator('.efm-table tbody tr').first().click();
+  await expect(page.getByRole('dialog').getByText('Sick leave')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /Gate Entry/ }).click();
+  await expect(page.getByText('Access denied by EFM')).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
 

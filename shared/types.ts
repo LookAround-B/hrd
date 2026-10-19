@@ -1,4 +1,4 @@
-export type EntityType = 'employee' | 'horse' | 'careTeam' | 'health' | 'medicine' | 'feedInventory' | 'consumption' | 'grocery' | 'feedPlan' | 'groceryUsage';
+export type EntityType = 'employee' | 'horse' | 'careTeam' | 'health' | 'medicine' | 'feedInventory' | 'consumption' | 'grocery' | 'feedPlan' | 'groceryUsage' | 'horseProfile' | 'farrier' | 'inspection' | 'accident';
 export type JsonRecord = Record<string, unknown>;
 export interface Club {
   id: string; name: string; brief: string; baseUrl: string; authorisation: string;

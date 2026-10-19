@@ -38,6 +38,13 @@ export const records: SourceRecord[] = [
   record(clubA.id, 'consumption', 'day:2026-10-11:oats', { kind: 'day', date: '2026-10-11', feedType: 'oats', quantity: 2 }),
   record(clubA.id, 'consumption', 'horse:horse-1:oats', { kind: 'horse', horseId: 'horse-1', horseName: 'Aurora', feedType: 'oats', quantity: 2 }),
   record(clubA.id, 'health', 'health-1', { horseId: 'horse-1', recordType: 'Check-up', description: 'Routine examination', date: '2026-10-11T00:00:00.000Z', documents: 'https://example.com/health.pdf' }),
+  record(clubA.id, 'health', 'health-2', { horseId: 'horse-2', recordType: 'Vaccination', description: 'Influenza booster', date: '2025-01-10T00:00:00.000Z', nextDueDate: '2025-07-10T00:00:00.000Z' }),
+  record(clubA.id, 'health', 'health-3', { horseId: 'horse-2', recordType: 'Treatment', description: 'Ivermectin deworming', date: '2026-09-01T00:00:00.000Z' }),
+  record(clubA.id, 'medicine', 'medicine-1', { horseId: 'horse-2', medicineName: 'Phenylbutazone', quantity: 2, unit: 'g', timeAdministered: '2026-10-10T08:00:00.000Z', approvalStatus: 'Pending' }),
+  record(clubA.id, 'medicine', 'medicine-2', { horseId: 'horse-1', medicineName: 'Eqvalan paste', diagnosis: 'Routine deworming', quantity: 1, unit: 'tube', timeAdministered: '2026-09-20T08:00:00.000Z', approvalStatus: 'approved', legs: 'All', jamedar: { fullName: 'Asha Menon' } }),
+  record(clubA.id, 'farrier', 'farrier-1', { horseId: 'horse-1', shoeingDate: '2026-08-01T00:00:00.000Z', nextDueDate: '2026-09-12T00:00:00.000Z', numberOfLegs: 4, shoeChanged: true, farrier: { fullName: 'Fixture farrier' } }),
+  record(clubA.id, 'inspection', 'inspection-1', { horseId: 'horse-2', round: 'Morning', issueType: 'Injury', description: 'Swelling on near fore', severityLevel: 'High', status: 'Open', createdAt: '2026-10-12T05:00:00.000Z' }),
+  record(clubA.id, 'horseProfile', 'horse-1', { microchipNumber: '985000000000001', feiId: 'FEI-104', sire: 'Fixture sire' }),
   record(clubA.id, 'feedPlan', 'plan-1', {horseId:'horse-1',date:'2026-10-11',temporaryMenuName:'Recovery menu',oats:2,notes:'Fixture feed plan'}),
   record(clubA.id, 'groceryUsage', 'usage-1', {itemName:'Rice tracker',category:'FOOD ITEMS - RESTAURANT',unit:'kg',month:10,year:2026,openingStock:10,purchaseStock:5,w1Received:5,w2Received:0,w3Received:0,w4Received:0,w1Used:2,w2Used:1,w3Used:0,w4Used:0,monthlyBalance:12}),
 ];
