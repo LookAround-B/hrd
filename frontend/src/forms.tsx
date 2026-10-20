@@ -7,7 +7,7 @@ export function ClubForm({club,onClose,onSaved}:{club?:Club;onClose:()=>void;onS
   const [busy,setBusy]=useState(false);const [testing,setTesting]=useState(false);const [error,setError]=useState('');
   async function submit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();const form=event.currentTarget;const data=new FormData(form);setBusy(true);setError('');
-    const body:Record<string,unknown>=Object.fromEntries(data.entries());body.termsConfirmed=data.get('termsConfirmed')==='on';
+    const body:Record<string,unknown>=Object.fromEntries(data.entries());if(!club)body.termsConfirmed=data.get('termsConfirmed')==='on';
     try{
       const saved=await api<{id?:string}>(club?`clubs/${club.id}/credential`:'clubs',body);
       const id=club?.id||saved.id!;form.reset();setTesting(true);

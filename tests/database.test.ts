@@ -269,6 +269,17 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
     expect((await api(`clubs/${id}/activate`,{reconciled:true})).code).toBe(200);
     const checks=(await api('dashboard')).body.checks;expect(checks.find((c:{route:string})=>c.route===deniedRoute).state).toBe('denied');
   });
+  it('rejects unknown fields and bad values on every route with a readable message',async()=>{
+    const extra=await api('clubs',{name:'Fixture',baseUrl:base,token:permanentKey,issuer:'Owner',authorisation:'Fixture approval',termsConfirmed:true,role:'owner'});
+    expect(extra.code).toBe(400);expect(extra.body.error).toMatch(/role/);
+    expect((await db().query('SELECT count(*)::int n FROM hrd_clubs')).rows[0].n).toBe(0);
+    expect((await api('dashboard',undefined,{query:{debug:'1'}})).code).toBe(400);
+    const id=await onboard();
+    expect((await api(`clubs/${id}/sync`,{force:true})).code).toBe(400);
+    expect((await api(`clubs/${id}/activate`,{reconciled:'yes'})).code).toBe(400);
+    expect((await api('auth/demo',{phone:'9000000001'})).code).toBe(400);
+    expect((await api('nope')).code).toBe(404);
+  });
   it('enforces HRD sessions, origin, CSRF and reconciliation freshness',async()=>{
     expect((await api('dashboard',undefined,{session:''})).code).toBe(401);
     const id=await onboard();await reconcile(id);

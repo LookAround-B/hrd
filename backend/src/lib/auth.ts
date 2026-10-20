@@ -49,7 +49,7 @@ async function startSession(res: NextApiResponse, email: string, expiresAt: Date
   res.setHeader('Set-Cookie',sessionCookie(token));
   return { email, csrf, expiresAt: expiresAt.toISOString() };
 }
-export async function loginDemo(req: NextApiRequest, res: NextApiResponse) {
+export async function loginDemo(req: NextApiRequest, res: NextApiResponse, input: { phone: string; code: string }) {
   assertOrigin(req);
   const demo = demoLogin();
   if (!demo.enabled) throw new HttpError(404, 'Demo sign-in is not available.');
@@ -57,8 +57,8 @@ export async function loginDemo(req: NextApiRequest, res: NextApiResponse) {
   const failures = 'demo-login-failures';
   const locked = (await db().query('SELECT count FROM hrd_rate_limits WHERE bucket=$1 AND expires_at>now()', [failures])).rows[0]?.count >= 10;
   if (locked) throw new HttpError(429, 'Too many failed attempts. Try again in 15 minutes.');
-  const phone = typeof req.body?.phone === 'string' ? req.body.phone.replace(/\D/g, '') : '';
-  const code = typeof req.body?.code === 'string' ? req.body.code.trim().slice(0, 200) : '';
+  const phone = input.phone.replace(/\D/g, '');
+  const code = input.code;
   if (!phone || !code || !sameSecret(phone.slice(-10), demo.phone.slice(-10)) || !sameSecret(code, demo.code)) {
     await audit('anonymous','demo_login_failed');
     await rateLimit(failures, 10, 900).catch(() => {});
@@ -75,13 +75,12 @@ export async function requireSession(req: NextApiRequest, mutation = false): Pro
   if (mutation) { assertOrigin(req); if (req.headers['x-hrd-csrf'] !== row.csrf) throw new HttpError(403, 'Session verification failed. Reload the page.'); }
   return { email: row.email, csrf: row.csrf, expiresAt: row.expires_at.toISOString() };
 }
-export async function login(req: NextApiRequest, res: NextApiResponse) {
+export async function login(req: NextApiRequest, res: NextApiResponse, input: { credential: string }) {
   assertOrigin(req);
   // Global budget cannot be bypassed by spoofing proxy headers. Per-account budget follows verified identity.
   await rateLimit('google-login', 60, 60);
   if (!process.env.GOOGLE_CLIENT_ID || !adminEmails().length) throw new HttpError(503, 'Admin sign-in is not configured yet.');
-  const credential = req.body?.credential;
-  if (typeof credential !== 'string' || credential.length > 10000) throw new HttpError(400, 'A Google sign-in credential is required.');
+  const credential = input.credential;
   let payload;
   try { payload = (await new OAuth2Client(process.env.GOOGLE_CLIENT_ID).verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID })).getPayload(); }
   catch { await audit('anonymous','login_failed'); throw new HttpError(401, 'Google sign-in could not be verified.'); }
