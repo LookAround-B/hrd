@@ -1,2 +1,7 @@
+packages:
+  - backend
+  - frontend
+  - shared
+
 allowBuilds:
   esbuild: false

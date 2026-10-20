@@ -1,5 +1,5 @@
 // LOCAL TESTING ONLY. Creates an admin session without Google so the dashboard can be opened.
-// Usage: npm run dev:session -w backend -- you@example.com
+// Usage: pnpm --filter @hrd/backend dev:session you@example.com
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from '../src/lib/db';
 

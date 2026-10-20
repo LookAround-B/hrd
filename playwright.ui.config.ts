@@ -14,7 +14,7 @@ export default defineConfig({
       : {},
   },
   webServer: {
-    command: 'npm run dev -w frontend -- --host 127.0.0.1 --port 8121 --strictPort',
+    command: 'pnpm --filter @hrd/frontend dev --host 127.0.0.1 --port 8121 --strictPort',
     url: 'http://127.0.0.1:8121',
     reuseExistingServer: false,
     timeout: 30000,

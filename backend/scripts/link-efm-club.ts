@@ -3,7 +3,7 @@
 // On any failure after issuance the key is revoked.
 //
 // Usage (HRD API must be running):
-//   npm run link:efm -w backend -- --efm-dir /path/to/Stable/backend --employee admin@stable.com \
+//   pnpm --filter @hrd/backend link:efm --efm-dir /path/to/Stable/backend --employee admin@stable.com \
 //     --club "Club name" --issuer "EFM administrator" --authorisation "Written approval ref" [--activate]
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';

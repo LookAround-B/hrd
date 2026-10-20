@@ -3,27 +3,26 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "backend",
-    "frontend"
-  ],
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
-    "dev": "concurrently --kill-others -n api,web,sync \"npm run dev -w backend\" \"npm run dev -w frontend\" \"npm run sync:watch -w backend\"",
-    "build": "npm run build -w frontend && npm run build -w backend",
-    "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
+    "dev": "concurrently --kill-others -n api,web,sync \"pnpm --filter @hrd/backend dev\" \"pnpm --filter @hrd/frontend dev\" \"pnpm --filter @hrd/backend sync:watch\"",
+    "build": "pnpm --filter @hrd/frontend build && pnpm --filter @hrd/backend build",
+    "typecheck": "pnpm --filter @hrd/backend --filter @hrd/frontend typecheck",
     "test": "vitest run",
     "test:db": "vitest run tests/database.test.ts",
-    "test:e2e": "npm run test:integration && npm run test:ui",
+    "test:e2e": "pnpm test:integration && pnpm test:ui",
     "test:ui": "playwright test --config playwright.ui.config.ts",
-    "db:migrate": "npm run db:migrate -w backend",
-    "sync": "npm run sync -w backend",
-    "test:integration": "node scripts/test-db.mjs"
+    "test:integration": "node scripts/test-db.mjs",
+    "db:migrate": "pnpm --filter @hrd/backend db:migrate",
+    "sync": "pnpm --filter @hrd/backend sync"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
     "concurrently": "^9.2.1",
+    "google-auth-library": "^10.9.1",
     "tsx": "^4.20.6",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.4",
+    "zod": "^4.1.12"
   },
   "engines": {
     "node": ">=22.12.0"
