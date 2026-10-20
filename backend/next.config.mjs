@@ -11,6 +11,9 @@ export default {
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     { key: 'X-Frame-Options', value: 'DENY' },
     { key: 'Referrer-Policy', value: 'no-referrer' },
-    { key: 'Cache-Control', value: 'no-store' }
+    { key: 'Cache-Control', value: 'no-store' },
+    // JSON only: nothing on the API may run scripts, load resources or be framed.
+    { key: 'Content-Security-Policy', value: "default-src 'none'; frame-ancestors 'none'" },
+    { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' }
   ] }]; }
 };

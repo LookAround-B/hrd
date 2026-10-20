@@ -37,8 +37,10 @@ function usePopover(onOpen:()=>void) {
       const over=el.getBoundingClientRect().right-(innerWidth-8);if(over>0)el.style.left=`${Math.max(8,parseFloat(el.style.left)-over)}px`;opened.current();};
     el.addEventListener('beforetoggle',before);el.addEventListener('toggle',toggle);
     return()=>{el.removeEventListener('beforetoggle',before);el.removeEventListener('toggle',toggle);};},[]);
-  useEffect(()=>{if(!open)return;const close=(e:Event)=>{if(!panel.current?.contains(e.target as Node))panel.current?.hidePopover();};
-    addEventListener('scroll',close,true);addEventListener('resize',close);return()=>{removeEventListener('scroll',close,true);removeEventListener('resize',close);};},[open]);
+  // Resize closes only when the width changes: phones fire resize when the address bar or keyboard appears.
+  useEffect(()=>{if(!open)return;const width=innerWidth;const close=(e:Event)=>{if(!panel.current?.contains(e.target as Node))panel.current?.hidePopover();};
+    const resize=()=>{if(innerWidth!==width)panel.current?.hidePopover();};
+    addEventListener('scroll',close,true);addEventListener('resize',resize);return()=>{removeEventListener('scroll',close,true);removeEventListener('resize',resize);};},[open]);
   return {trigger,panel,open};
 }
 export type Option={value:string;label:string};

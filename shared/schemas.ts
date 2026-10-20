@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// No eval-based fast path: the website's Content-Security-Policy blocks eval.
+z.config({ jitless: true });
+
 // Every HRD API request, validated by one table: the API enforces it and the website checks it
 // before sending. Schemas are strict, so unknown fields are rejected instead of silently ignored.
 

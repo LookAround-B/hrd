@@ -4,7 +4,7 @@ Internal admin dashboard that mirrors safely accessible EFM data. HRD is a separ
 
 ## Local setup
 
-Requires Node 22.12+ and a separate PostgreSQL database. Install dependencies with `npm ci`. Copy `backend/.env.example` to `backend/.env` and configure:
+Requires Node 22.12+ and a separate PostgreSQL database. Install dependencies with `pnpm install` (pnpm 11, pinned in `package.json`; `corepack enable` provides it). Copy `backend/.env.example` to `backend/.env` and configure:
 
 | Setting | Purpose |
 | --- | --- |
@@ -18,7 +18,7 @@ Requires Node 22.12+ and a separate PostgreSQL database. Install dependencies wi
 | `APP_ORIGIN` | Exact frontend origin, e.g. `http://localhost:8001`, no trailing slash |
 | `EFM_ALLOWED_HOSTS` | Comma-separated exact approved HTTPS hostnames, no wildcards or ports |
 
-Run `npm run db:migrate`, then `npm run dev`. Development starts the API, frontend and five-minute sync worker together. Open http://localhost:8001. The Vite frontend proxies `/api` to the HRD backend on port 8501. Without Google configuration, the login screen explains that sign-in is awaiting setup; no authentication bypass is available. For local testing only, `npm run dev:session -w backend -- you@example.com` (an `ADMIN_EMAILS` address) prints a 12-hour session cookie to set in the browser console; it refuses to run when `NODE_ENV=production`.
+Run `pnpm db:migrate`, then `pnpm dev`. Development starts the API, frontend and five-minute sync worker together. Open http://localhost:8001. The Vite frontend proxies `/api` to the HRD backend on port 8501. Without Google configuration, the login screen explains that sign-in is awaiting setup; no authentication bypass is available. For local testing only, `pnpm --filter @hrd/backend dev:session you@example.com` (an `ADMIN_EMAILS` address) prints a 12-hour session cookie to set in the browser console; it refuses to run when `NODE_ENV=production`.
 
 ## Club onboarding and live activation
 
@@ -40,7 +40,7 @@ Deploy EFM key support before using an `efm_live_` credential in HRD. The EFM re
 From a machine that has both the HRD backend env and EFM's production env (EFM `backend/` with `.env.production.local` or equivalent), with the HRD API running:
 
 ```bash
-npm run link:efm -w backend -- --efm-dir /path/to/Stable/backend --employee admin@stable.com \
+pnpm --filter @hrd/backend link:efm --efm-dir /path/to/Stable/backend --employee admin@stable.com \
   --club "Club name" --issuer "EFM administrator" --authorisation "Written approval reference" [--activate]
 ```
 
@@ -85,11 +85,11 @@ EFM has no consistent multi-route snapshot API. HRD checks pagination totals and
 
 ## Validation
 
-`npm run typecheck`, `npm test`, `npm run test:integration`, `npm run build`, `npm run test:ui`.
+`pnpm typecheck`, `pnpm test`, `pnpm test:integration`, `pnpm build`, `pnpm test:ui`. CI (`.github/workflows/test.yml`) runs all of them except `test:integration`, using a Postgres service instead.
 
-Run `npm run test:integration` to start and tear down a disposable local PostgreSQL instance (requires installed PostgreSQL binaries; set `HRD_TEST_POSTGRES_BIN` if needed). It never loads `backend/.env`. Database tests otherwise skip unless `HRD_TEST_DATABASE_URL` points at an isolated local database **named `hrd_test`**. They truncate only HRD-prefixed tables in that database. Run `HRD_TEST_DATABASE_URL=postgresql://.../hrd_test npm test` to cover real PostgreSQL sessions, credential handling, isolated clubs, atomic replacement, sync failures/recovery, scheduling locks, and retention. EFM traffic is mocked in tests; no real EFM request is made. The database suite exercises the actual API handler, encryption, route discovery, all ten mirrored datasets, activation, scheduling, rotation, revocation, isolation, migration preservation and failure recovery. EFM responses are synthetic only inside tests. Browser checks use API fixtures and do not prove that the deployed EFM release is live.
+Run `pnpm test:integration` to start and tear down a disposable local PostgreSQL instance (requires installed PostgreSQL binaries; set `HRD_TEST_POSTGRES_BIN` if needed). It never loads `backend/.env`. Database tests otherwise skip unless `HRD_TEST_DATABASE_URL` points at an isolated local database **named `hrd_test`**. They truncate only HRD-prefixed tables in that database. Run `HRD_TEST_DATABASE_URL=postgresql://.../hrd_test pnpm test` to cover real PostgreSQL sessions, credential handling, isolated clubs, atomic replacement, sync failures/recovery, scheduling locks, and retention. EFM traffic is mocked in tests; no real EFM request is made. The database suite exercises the actual API handler, encryption, route discovery, all ten mirrored datasets, activation, scheduling, rotation, revocation, isolation, migration preservation and failure recovery. EFM responses are synthetic only inside tests. Browser checks use API fixtures and do not prove that the deployed EFM release is live.
 
-UI checks can run independently of PostgreSQL and EFM: `npx playwright install chromium`, then `npm run test:ui`. The suite starts only Vite on port 8121 and intercepts every HRD API request with two synthetic club fixtures. It covers desktop/mobile layout, navigation focus, dialogs, loading and recovery, filtering, pagination, food date semantics, and activation errors. Screenshots are saved under `test-results/`. Use `HRD_CHROMIUM_EXECUTABLE` when Chromium is already installed at a custom path. These fixtures are test-only and never fill live dashboard gaps.
+UI checks can run independently of PostgreSQL and EFM: `pnpm exec playwright install chromium`, then `pnpm test:ui`. The suite starts only Vite on port 8121 and intercepts every HRD API request with two synthetic club fixtures. It covers desktop/mobile layout, navigation focus, dialogs, loading and recovery, filtering, pagination, food date semantics, and activation errors. Screenshots are saved under `test-results/`. Use `HRD_CHROMIUM_EXECUTABLE` when Chromium is already installed at a custom path. These fixtures are test-only and never fill live dashboard gaps.
 
 ## Vercel deployment (current)
 
@@ -97,18 +97,20 @@ Live: website `https://hrd-web-five.vercel.app`, API `https://hrd-api.vercel.app
 
 | Project | Root directory | Notes |
 | --- | --- | --- |
-| `hrd-api` | `backend` | Next.js API, region `bom1`. Env: `DATABASE_URL`, `TOKEN_ENCRYPTION_KEY`, `GOOGLE_CLIENT_ID`, `ADMIN_EMAILS`, `APP_ORIGIN` (website URL), `EFM_ALLOWED_HOSTS`, `CRON_SECRET` (32+ chars). |
+| `hrd-api` | `backend` | Next.js API, region `bom1`. Env: `DATABASE_URL`, `TOKEN_ENCRYPTION_KEY`, `GOOGLE_CLIENT_ID`, `ADMIN_EMAILS`, `APP_ORIGIN` (website URL), `EFM_ALLOWED_HOSTS`, `CRON_SECRET` (32+ chars), `DB_CA_CERT` and `DB_SSL_SERVERNAME` (VPS database certificate; without them every database request fails). |
 | `hrd-web` | `frontend` | Static Vite build. `frontend/vercel.json` rewrites `/api/*` to `hrd-api`, so cookies stay first-party on the website origin. |
 
-Both projects are connected to `LookAround-B/hrd`: every push to `master` builds and deploys automatically. `vercel.json` in each package runs `cd .. && npm ci --include=dev` so the npm workspace (hoisted `node_modules`, `shared/`) is installed from the repository root, then `npm run build`. Root Directory must stay `backend` / `frontend`, or the build fails with `NEXT_NO_VERSION`.
+Both projects are connected to `LookAround-B/hrd`: every push to `master` builds and deploys automatically. `vercel.json` in each package runs `cd .. && npx --yes pnpm@11.7.0 install --frozen-lockfile` so the pnpm workspace (`backend`, `frontend`, `shared`) is installed from the repository root, then builds with the same pinned pnpm. Root Directory must stay `backend` / `frontend`, or the build fails with `NEXT_NO_VERSION`.
 
-Scheduled sync: `GET /api/cron/sync` with `Authorization: Bearer $CRON_SECRET` runs `syncAll()` (maintenance + every active club). Hobby cron only allows daily runs, so `vercel.json` has a daily backstop and `.github/workflows/sync.yml` calls the endpoint every 5 minutes using the `HRD_CRON_SECRET` repository secret (same value as `CRON_SECRET`). On Vercel Pro, change the cron in `backend/vercel.json` to `*/5 * * * *` and disable the workflow. Run migrations from an operator machine with `npm run db:migrate` before deploying schema changes.
+Scheduled sync: `GET /api/cron/sync` with `Authorization: Bearer $CRON_SECRET` runs `syncAll()` (maintenance + every active club). Hobby cron only allows daily runs, so `vercel.json` has a daily backstop and `.github/workflows/sync.yml` calls the endpoint every 5 minutes using the `HRD_CRON_SECRET` repository secret (same value as `CRON_SECRET`). On Vercel Pro, change the cron in `backend/vercel.json` to `*/5 * * * *` and disable the workflow. Run migrations from an operator machine with `pnpm db:migrate` before deploying schema changes.
+
+Security headers: the website sends a strict Content-Security-Policy (scripts only from this site and Google sign-in), HSTS, `Permissions-Policy`, `X-Frame-Options: DENY` and `Cross-Origin-Opener-Policy: same-origin-allow-popups` (needed by the Google sign-in pop-up); see `frontend/vercel.json`. The API sends `default-src 'none'` and HSTS (`backend/next.config.mjs`). When adding a third-party script, font or frame, extend the CSP or the browser blocks it. Every API request is validated against the strict schemas in `shared/schemas.ts`; the website runs the same schemas before sending.
 
 Add the website URL as an Authorised JavaScript origin on the Google OAuth client so admin sign-in works.
 
 ## Operations and retention
 
-`npm run sync` runs one scheduling pass. Per-club PostgreSQL advisory locks serialize manual/scheduled sync with activation, token replacement and disconnect. Check **API Routes** for last check/status/latency, **Sync history** on each club for the latest ten runs and their dataset results, and **Activity log** for logins, key changes and club actions. Authentication failures are recorded as failed syncs even before dataset import begins. Failed validation and replacement credentials mark cached records stale until a fresh reconciliation succeeds. Backend logs deliberately omit request bodies, database error details and EFM payloads.
+`pnpm sync` runs one scheduling pass. Per-club PostgreSQL advisory locks serialize manual/scheduled sync with activation, token replacement and disconnect. Check **API Routes** for last check/status/latency, **Sync history** on each club for the latest ten runs and their dataset results, and **Activity log** for logins, key changes and club actions. Authentication failures are recorded as failed syncs even before dataset import begins. Failed validation and replacement credentials mark cached records stale until a fresh reconciliation succeeds. Backend logs deliberately omit request bodies, database error details and EFM payloads.
 
 Disconnect deletes the stored credential immediately. Maintenance in the scheduled job purges disconnected-club personal data after 30 days, sync diagnostics after 30 days, audit events after 90 days, and expired sessions/rate-limit counters. Current connected-club records remain until replaced or disconnected. Backups may retain older records according to your separately configured database backup policy; restrict backup access and align that policy with club approval.
 

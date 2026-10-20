@@ -8,3 +8,7 @@ coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
+
+# Local only: confidential brief and the file next dev regenerates.
+HRD_EFM_API_Integration_Brief.pdf
+backend/AGENTS.md
