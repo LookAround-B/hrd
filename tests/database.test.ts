@@ -19,6 +19,7 @@ import { createEfmReader, EfmError } from '../backend/src/lib/efm';
 import { db } from '../backend/src/lib/db';
 import { decryptToken } from '../backend/src/lib/crypto';
 import { syncAll,maintenance } from '../backend/src/lib/sync';
+import { syncExport } from '../backend/src/lib/export';
 import { runMigrations } from '../backend/src/lib/migrate';
 import catalog from '../shared/route-catalog.json';
 
@@ -34,7 +35,7 @@ const permanentKey=`efm_live_${'a'.repeat(43)}`;
 const replacementKey=`efm_live_${'b'.repeat(43)}`;
 const session=randomBytes(32).toString('hex');
 const csrf='test-csrf';
-let revoked=false,deniedRoute='',failRoute='',duplicateEmployee=false,exchanges=0,reads=0;
+let revoked=false,deniedRoute='',failRoute='',duplicateEmployee=false,emptyExport=false,exchanges=0,reads=0,consumptionReads=0;
 const accessTokens=new Set<string>();
 const response=(body:unknown)=>({body,status:200,latencyMs:1});
 const employee={id:'employee-1',fullName:'Fixture Employee',email:'fixture@example.com',designation:'Super Admin',isApproved:true,password:'must-never-be-mirrored'};
@@ -51,7 +52,7 @@ const transport:EfmTransport=async(url,request)=>{
   expect(request.method).toBe('GET');
   expect(request.headers.authorization).not.toContain('efm_live_');
   if(!accessTokens.has(request.headers.authorization.slice(7))||revoked) throw new EfmError(401,1,'credential_required','Revoked fixture token');
-  reads++;
+  reads++;if(url.pathname==='/api/feed-inventory/consumption-report') consumptionReads++;
   if(url.pathname===deniedRoute) throw new EfmError(403,1,'denied','Fixture route denied');
   if(url.pathname===failRoute) throw new EfmError(503,1,'error','Fixture source unavailable');
   const page=(data:unknown[])=>response({data,pagination:{total:data.length}});
@@ -77,7 +78,7 @@ const transport:EfmTransport=async(url,request)=>{
       const tables:Record<string,Record<string,unknown>[]>={Attendance:[{id:'att-2',employeeId:employee.id,date:'2026-10-02',status:'Present'},{id:'att-1',employeeId:employee.id,date:'2026-10-01',status:'Absent'}],
         Employee:[{id:employee.id,fullName:employee.fullName,password:'must-never-be-mirrored'}]};
       const dataset=url.searchParams.get('dataset');
-      if(!dataset) return response({version:1,datasets:Object.entries(tables).map(([name,rows])=>({name,count:rows.length,fields:Object.keys(rows[0])}))});
+      if(!dataset) return response({version:1,datasets:emptyExport?[]:Object.entries(tables).map(([name,rows])=>({name,count:rows.length,fields:Object.keys(rows[0])}))});
       return page(tables[dataset]);
     }
     default: throw new Error('Unexpected EFM request in integration test');
@@ -112,7 +113,7 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
   beforeEach(async()=>{
     await db().query('TRUNCATE hrd_clubs,hrd_records,hrd_efm_rows,hrd_efm_datasets,hrd_route_checks,hrd_sync_runs,hrd_audit_events,hrd_admin_sessions,hrd_rate_limits CASCADE');
     await db().query('INSERT INTO hrd_admin_sessions(token_hash,email,csrf,expires_at) VALUES($1,$2,$3,now()+interval \'1 hour\')',[createHash('sha256').update(session).digest('hex'),'hrd-admin@example.com',csrf]);
-    revoked=false;deniedRoute='';failRoute='';duplicateEmployee=false;exchanges=0;reads=0;accessTokens.clear();state.reader=createEfmReader(transport);
+    revoked=false;deniedRoute='';failRoute='';duplicateEmployee=false;emptyExport=false;consumptionReads=0;exchanges=0;reads=0;accessTokens.clear();state.reader=createEfmReader(transport);
     state.email='hrd-admin@example.com';state.verified=true;state.invalidLogin=false;
   });
   afterAll(async()=>{await db().end();delete (globalThis as {hrdPool?:unknown}).hrdPool;});
@@ -165,10 +166,18 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
     expect((await reconcile(id)).state).toBe('success');
     const dashboard=await api('dashboard');expect(dashboard.code).toBe(200);
     expect(dashboard.body.clubs[0]).toMatchObject({status:'pending',employeeCount:1,horseCount:1,credentialExpiresAt:null,scopeNotes:'Reviewed read-only HRD datasets',rateLimitNotes:'Fixture limit: 30 token exchanges per minute'});
-    expect([...new Set(dashboard.body.records.map((r:{type:string})=>r.type))].sort()).toEqual(['careTeam','consumption','employee','feedInventory','grocery','health','horse','medicine','feedPlan','groceryUsage','horseProfile','farrier','inspection','accident'].sort());
+    // Feed plans and daily consumption are served on demand, not in the dashboard payload.
+    expect([...new Set(dashboard.body.records.map((r:{type:string})=>r.type))].sort()).toEqual(['careTeam','consumption','employee','feedInventory','grocery','health','horse','medicine','groceryUsage','horseProfile','farrier','inspection','accident'].sort());
+    expect(dashboard.body.clubs[0].latestConsumptionDate).toBe('2026-10-01');
+    expect((await api('feed-plans',undefined,{query:{clubId:id,horseId:'horse-1'}})).body.map((r:{sourceId:string})=>r.sourceId)).toEqual(['plan-1']);
+    expect((await api('consumption',undefined,{query:{from:'2026-10-01',to:'2026-10-31'}})).body).toEqual([{clubId:id,feedType:'oats',quantity:20}]);
+    expect((await api('consumption',undefined,{query:{from:'2026-11-01',to:'2026-11-30'}})).body).toEqual([]);
+    expect((await api('consumption',undefined,{query:{from:'bad',to:'2026-11-30'}})).code).toBe(400);
+    const checked=dashboard.body.checks.map((c:{route:string})=>c.route);
+    expect(checked).toContain('/api/employees/[id]');expect(checked).not.toContain('/api/employees/employee-1');
     expect(dashboard.body.records.find((r:{type:string})=>r.type==='horse').data.trainingLevel).toBe('Novice');
     expect(dashboard.body.clubs[0].routeCatalog).toEqual(catalog);
-    expect(dashboard.body.records.filter((r:{type:string})=>r.type==='consumption')).toHaveLength(2);
+    expect(dashboard.body.records.filter((r:{type:string})=>r.type==='consumption')).toHaveLength(1);
     expect(JSON.stringify(dashboard.body)).not.toContain(permanentKey);expect(JSON.stringify(dashboard.body)).not.toContain('must-never-be-mirrored');
     expect((await api(`clubs/${id}/activate`,{reconciled:true})).code).toBe(200);
     expect(await syncAll()).toEqual({clubs:1,failures:0});expect(exchanges).toBe(1);
@@ -181,12 +190,44 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
     const rows=await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',sort:'date',dir:'desc'}});
     expect(rows.body.total).toBe(2);expect(rows.body.rows.map((r:{id:string})=>r.id)).toEqual(['att-2','att-1']);
     expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',search:'absent'}})).body.rows.map((r:{id:string})=>r.id)).toEqual(['att-1']);
+    // Search matches values only; every row has a "status" key.
+    expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',search:'status'}})).body.total).toBe(0);
     expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',filters:JSON.stringify({status:'Present'})}})).body.total).toBe(1);
     expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',filters:JSON.stringify({nope:'x'})}})).code).toBe(400);
     expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',filters:'{bad'}})).code).toBe(400);
     expect((await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Missing'}})).code).toBe(404);
     const stored=JSON.stringify((await db().query('SELECT data FROM hrd_efm_rows WHERE club_id=$1',[id])).rows);
     expect(stored).not.toContain('must-never-be-mirrored');expect(stored).toContain('Fixture Employee');
+  });
+  it('keeps the export mirror when EFM lists no tables, and defers datasets past the time budget',async()=>{
+    const id=await onboard();await reconcile(id);
+    const count=async()=>(await db().query('SELECT count(*)::int n FROM hrd_efm_rows WHERE club_id=$1',[id])).rows[0].n;
+    const before=await count();expect(before).toBe(3);
+    emptyExport=true;expect((await api(`clubs/${id}/sync`,{})).body).toMatchObject({state:'success',datasets:{efmExport:'ok:0/0'}});
+    expect(await count()).toBe(before);
+    emptyExport=false;
+    expect(await syncExport(id,1,state.reader!,base,permanentKey,{force:true,budgetMs:-1})).toEqual({datasets:2,refreshed:0,failed:0,deferred:2});
+  });
+  it('sorts export values by JSON type, so numbers compare as numbers',async()=>{
+    const id=await onboard();await reconcile(id);
+    await db().query(`INSERT INTO hrd_efm_rows(club_id,dataset,source_id,data) VALUES($1,'Attendance','att-9','{"id":"att-9","hours":9}'),($1,'Attendance','att-10','{"id":"att-10","hours":10}'),($1,'Attendance','att-0','{"id":"att-0","hours":null}')`,[id]);
+    await db().query(`UPDATE hrd_efm_datasets SET fields='["id","hours"]' WHERE club_id=$1 AND dataset='Attendance'`,[id]);
+    const rows=await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',sort:'hours',dir:'asc'}});
+    // JSON null sorts last with missing values, in both directions.
+    expect(rows.body.rows.map((r:{id:string})=>r.id)).toEqual(['att-9','att-10','att-0','att-1','att-2']);
+    const desc=await api('efm-data/rows',undefined,{query:{clubId:id,dataset:'Attendance',sort:'hours',dir:'desc'}});
+    expect(desc.body.rows.map((r:{id:string})=>r.id)).toEqual(['att-10','att-9','att-0','att-1','att-2']);
+  });
+  it('scheduled sync reuses a consumption report younger than 30 minutes, then refreshes it',async()=>{
+    const id=await onboard();await reconcile(id);await api(`clubs/${id}/activate`,{reconciled:true});
+    consumptionReads=0;expect(await syncAll()).toEqual({clubs:1,failures:0});expect(consumptionReads).toBe(0);
+    await db().query("UPDATE hrd_records SET synced_at=now()-interval '31 minutes' WHERE club_id=$1 AND entity_type='consumption'",[id]);
+    expect(await syncAll()).toEqual({clubs:1,failures:0});expect(consumptionReads).toBe(1);
+  });
+  it('defers clubs that would start too close to the scheduler deadline',async()=>{
+    const id=await onboard();await reconcile(id);await api(`clubs/${id}/activate`,{reconciled:true});
+    const count=reads;expect(await syncAll(Date.now()+1000)).toEqual({clubs:1,failures:1});expect(reads).toBe(count);
+    expect((await api('audit')).body.map((r:{action:string})=>r.action)).toContain('sync_deferred');
   });
   it('pauses on key revocation and preserves the last mirrored data',async()=>{
     const id=await onboard();await reconcile(id);await api(`clubs/${id}/activate`,{reconciled:true});

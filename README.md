@@ -10,6 +10,7 @@ Requires Node 22.12+ and a separate PostgreSQL database. Install dependencies wi
 | --- | --- |
 | `DATABASE_URL` | HRD database only; never EFM's database |
 | `DB_SSL` | `false` for a local Postgres without SSL; omit for hosted databases (SSL on) |
+| `DB_CA_CERT` | PEM CA certificate of a database whose certificate is not signed by a public CA (e.g. the VPS). The server certificate is always verified when SSL is on. `\n` escapes are accepted |
 | `TOKEN_ENCRYPTION_KEY` | Base64 32-byte key, generated with `openssl rand -base64 32`; identical in API and scheduler |
 | `GOOGLE_CLIENT_ID` | Google web client ID; configure the HRD website as an authorised JavaScript origin |
 | `ADMIN_EMAILS` | Comma-separated administrator email allow-list |
@@ -104,24 +105,11 @@ Scheduled sync: `GET /api/cron/sync` with `Authorization: Bearer $CRON_SECRET` r
 
 Add the website URL as an Authorised JavaScript origin on the Google OAuth client so admin sign-in works.
 
-## Render deployment
-
-The [Render Blueprint](https://render.com/docs/blueprint-spec) in `render.yaml` declares only HRD's static frontend, Next.js backend, private PostgreSQL database, and [five-minute cron job](https://render.com/docs/cronjobs). Services use Render's default paid compute/database plans; review costs in your account before provisioning.
-
-1. Push **this HRD directory** to its own private Git repository and connect a Render Blueprint. Persistent integration keys additionally require deploying the EFM key-support release.
-2. Set `GOOGLE_CLIENT_ID`, `ADMIN_EMAILS` and `APP_ORIGIN` on the API service when prompted. The shared HRD settings group generates a 32-byte `TOKEN_ENCRYPTION_KEY` for API and cron and holds `EFM_ALLOWED_HOSTS`. Back up the encryption key securely; changing it makes existing credentials unreadable. Configure Google JavaScript origins for the final HRD frontend URL.
-3. Confirm the assigned API URL. If Render adds a suffix to `hrd-pilot-api.onrender.com`, update only HRD's `/api/*` frontend rewrite destination in the Blueprint to that URL. Keep the API rule before the SPA fallback. Render [rewrites](https://render.com/docs/redirects-rewrites) preserve the browser's frontend origin so HRD uses same-origin cookies and requests.
-4. Verify the frontend's `/api/health` responds with JSON, a Google login sets an HttpOnly/Secure session cookie, refresh stays signed in, logout revokes it, and an unapproved account is denied. Google tokens are [verified server-side](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token), including audience, signature and verified allow-listed email.
-5. API pre-deploy applies idempotent HRD migrations. Allow the API migration to finish before the cron job's first run; rerun a failed initial cron afterwards.
-6. Complete club reconciliation before activation. Confirm cron runs every five minutes, route diagnostics update, and stale data is flagged after 15 minutes. Configure Render failure notifications for the cron job and API.
-
-No external service was provisioned by local setup. Live deployment requires a private Git repository, Render access, Google client settings and an approved EFM token. Keep all secrets in Render's settings and the HRD onboarding form, never in Git.
-
 ## Operations and retention
 
 `npm run sync` runs one scheduling pass. Per-club PostgreSQL advisory locks serialize manual/scheduled sync with activation, token replacement and disconnect. Check **API Routes** for last check/status/latency, **Sync history** on each club for the latest ten runs and their dataset results, and **Activity log** for logins, key changes and club actions. Authentication failures are recorded as failed syncs even before dataset import begins. Failed validation and replacement credentials mark cached records stale until a fresh reconciliation succeeds. Backend logs deliberately omit request bodies, database error details and EFM payloads.
 
-Disconnect deletes the stored credential immediately. Maintenance in the scheduled job purges disconnected-club personal data after 30 days, sync diagnostics after 30 days, audit events after 90 days, and expired sessions/rate-limit counters. Current connected-club records remain until replaced or disconnected. Backups may retain older records according to your separately configured Render backup policy; restrict backup access and align that policy with club approval.
+Disconnect deletes the stored credential immediately. Maintenance in the scheduled job purges disconnected-club personal data after 30 days, sync diagnostics after 30 days, audit events after 90 days, and expired sessions/rate-limit counters. Current connected-club records remain until replaced or disconnected. Backups may retain older records according to your separately configured database backup policy; restrict backup access and align that policy with club approval.
 
 Back up HRD's database and encryption key separately. For rollback, restore the previous HRD release; disable the HRD cron if needed. Routine HRD rollback leaves EFM unchanged.
 

@@ -1,6 +1,6 @@
 import { useCallback,useEffect,useRef,useState } from 'react';
 import { Wheat,Users,Building2,GitBranch,Route,RefreshCw,Plus,LogOut,ArrowUpRight,ShieldCheck,Menu,X,Activity,HeartPulse,Database } from 'lucide-react';
-import type { Club,Dashboard,SessionUser,SourceRecord } from '../../shared/types';
+import type { Club,ConsumptionTotal,Dashboard,SessionUser,SourceRecord } from '../../shared/types';
 import { api,ApiError,setSession } from './api';
 import { Badge,DataTable,DataNote,Empty,Identity,LoadingPanel,Modal,date,text,quantity } from './components';
 import { ClubForm,HorseDetails,EmployeeDetails,SyncHistory,Activation } from './forms';
@@ -70,7 +70,7 @@ export default function App() {
     setDataLoading(true);try{setData(await api<Dashboard>('dashboard'));setDataLoaded(true);setRefreshFailed(false);setError('');}catch(e){if(e instanceof ApiError&&e.status===401){setSession(null);setUser(null);setData(emptyDashboard);setDataLoaded(false);setDataLoading(true);}else{setRefreshFailed(true);setError((e as Error).message);}}finally{setDataLoading(false);}
   },[]);
   useEffect(()=>{api<SessionUser>('auth/session').then(login).catch(e=>{if(!(e instanceof ApiError&&e.status===401))setError(e.message);}).finally(()=>setLoading(false));},[login]);
-  useEffect(()=>{if(!session)return;void refresh();const timer=setInterval(()=>void refresh(),60000);return()=>clearInterval(timer);},[session,refresh]);
+  useEffect(()=>{if(!session)return;void refresh();const timer=setInterval(()=>void refresh(),300000);return()=>clearInterval(timer);},[session,refresh]);
   async function action(club:Club,kind:string,body:unknown={}) {
     setBusy(`${club.id}:${kind}`);setError('');setModalError('');setMessage('');
     try{const result=await api<{state?:string;message?:string;datasets?:Record<string,string>}>(`clubs/${club.id}/${kind}`,body);
@@ -97,11 +97,11 @@ export default function App() {
       {tab==='Employees'&&<><DataNote>Joining dates are unavailable in the existing EFM API. Account creation dates are not used as joining dates.</DataNote><DataTable headers={['Employee','Role / department','Contact','Club','Joining date','Status','Synced','Details']} rows={records.filter(r=>r.type==='employee').map(r=>({key:r.id,search:JSON.stringify(r.data)+clubName(r.clubId),cells:[<Identity name={text(r.data.fullName)}/>,<>{text(r.data.designation)}<small>{text(r.data.department)}</small></>,<>{text(r.data.email)}<small>{text(r.data.phoneNumber)}</small></>,clubName(r.clubId),'Unavailable',<Badge>{text(r.data.employmentStatus)}</Badge>,date(r.syncedAt,true),<button className="subtle" onClick={()=>setModal({type:'employee',employee:r})}>View <ArrowUpRight size={15}/></button>]}))}/></>}
       {tab==='Horses'&&<><DataNote>Horse details include recorded feed plans, health and training profiles. Dated training history and fields not exposed by EFM remain unavailable.</DataNote><DataTable headers={['Horse','Breed / sex','Stable','Owner','Club','Status','Details']} rows={records.filter(r=>r.type==='horse').map(r=>({key:r.id,search:JSON.stringify(r.data)+clubName(r.clubId),cells:[<Identity name={text(r.data.name)}/>,<>{text(r.data.breed)}<small>{text(r.data.gender)}</small></>,text(r.data.stableNumber,text(r.data.location,'Not recorded')),<>{text(r.data.ownerName,'Not recorded')}<small>{text(r.data.ownerContact,'')}</small></>,clubName(r.clubId),<Badge>{text(r.data.status)}</Badge>,<button className="subtle" onClick={()=>setModal({type:'horse',horse:r})}>View <ArrowUpRight size={15}/></button>]}))}/></>}
       {tab==='Health'&&<Health records={records} clubName={clubName} onHorse={horse=>setModal({type:'horse',horse})}/>}
-      {tab==='Food'&&<Food records={records} clubName={clubName}/>}
+      {tab==='Food'&&<Food records={records} clubs={clubs} clubName={clubName}/>}
       {tab==='Entity Map'&&(selected?<EntityMap key={selected.id} club={selected} records={records}/>:<Empty title="Choose a club to explore" description="Each entity map shows one club’s recorded people, horses and feed relationships." action={<div className="map-clubs">{data.clubs.map(c=><button key={c.id} onClick={()=>setClubId(c.id)}>{c.name}</button>)}</div>}/>)}
       {tab==='EFM Data'&&(selected?<EfmData key={selected.id} clubId={selected.id} records={data.records}/>:<Empty title="Choose a club to browse" description="EFM data is mirrored per club. Pick the club whose EFM tables you want to explore." action={<div className="map-clubs">{data.clubs.map(c=><button key={c.id} onClick={()=>setClubId(c.id)}>{c.name}</button>)}</div>}/>)}
       {tab==='API Routes'&&<><DataNote>Only reviewed read routes receive live checks. EFM routes that write data when read, and all unreviewed routes, are excluded from requests.</DataNote><DataTable headers={['Route','Methods','HRD access','Last check','Response','Latency']} rows={(clubs.length?clubs.flatMap(club=>(club.routeCatalog||data.catalog).map(route=>({club,route}))):data.catalog.map(route=>({club:undefined,route}))).map(({club,route})=>{
-        const checks=data.checks.filter(c=>c.clubId===club?.id&&(c.route===route.path||(route.path==='/api/employees/[id]'&&/^\/api\/employees\/[^/]+$/.test(c.route))));const check=checks.sort((a,b)=>b.checkedAt.localeCompare(a.checkedAt))[0];
+        const checks=data.checks.filter(c=>c.clubId===club?.id&&c.route===route.path);const check=checks.sort((a,b)=>b.checkedAt.localeCompare(a.checkedAt))[0];
         return {key:`${club?.id||'catalog'}:${route.path}`,search:route.path+route.reason+(club?.name||''),cells:[<><strong className="route-path">{route.path}</strong><small>{club?.name||'Route catalog'} · {route.reason}</small></>,route.methods.join(', '),<Badge tone={route.safe?'neutral':'warn'}>{route.safe?(check?.state.replaceAll('_',' ')||'Not tested'):'Excluded'}</Badge>,date(check?.checkedAt,true),check?.status||'Not tested',check?`${check.latencyMs} ms`:'—']};
       })}/></>}
       </>}
@@ -116,27 +116,30 @@ export default function App() {
     {modal?.type==='audit'&&<AuditLog onClose={()=>setModal(null)}/>}
   </div>;
 }
-function Food({records,clubName}:{records:SourceRecord[];clubName:(id:string)=>string}) {
+function Food({records,clubs,clubName}:{records:SourceRecord[];clubs:Club[];clubName:(id:string)=>string}) {
   const today=new Date().toISOString().slice(0,10);
   // Default to the last 30 days, widened back to the latest month EFM has feed figures or daily consumption for,
   // so a club that hasn't recorded food recently still opens on its most recent data instead of an empty range.
   const [from,setFrom]=useState(()=>{
     const recent=new Date(Date.now()-29*86400000).toISOString().slice(0,10);
-    const latest=records.reduce((max,r)=>{
-      const d=r.type==='feedInventory'?`${r.data.year}-${String(r.data.month).padStart(2,'0')}-01`:r.type==='consumption'&&r.data.kind==='day'?text(r.data.date).slice(0,7)+'-01':'';
-      return /^\d{4}-\d{2}-01$/.test(d)&&d>max?d:max;
-    },'');
+    const months=[...records.filter(r=>r.type==='feedInventory').map(r=>`${r.data.year}-${String(r.data.month).padStart(2,'0')}-01`),
+      ...clubs.map(c=>c.latestConsumptionDate?c.latestConsumptionDate.slice(0,7)+'-01':'')];
+    const latest=months.reduce((max,d)=>/^\d{4}-\d{2}-01$/.test(d)&&d>max?d:max,'');
     return latest&&latest<recent?latest:recent;
   });const [to,setTo]=useState(today);
   const invalid=!from||!to||from>to;const inventories=records.filter(r=>r.type==='feedInventory');
   const unit=(club:string,feed:unknown)=>text(inventories.find(r=>r.clubId===club&&r.data.feedType===feed)?.data.unit);
-  const consumption=records.filter(r=>r.type==='consumption'&&r.data.kind==='day'&&text(r.data.date)>=from&&text(r.data.date)<=to);
-  const total=new Map<string,{club:string;feed:string;quantity:number}>();for(const r of consumption){const key=`${r.clubId}:${r.data.feedType}`;const row=total.get(key)||{club:r.clubId,feed:text(r.data.feedType),quantity:0};row.quantity+=Number(r.data.quantity)||0;total.set(key,row);}
+  // Daily consumption is summed on the server; the dashboard payload does not carry daily rows.
+  const [totals,setTotals]=useState<ConsumptionTotal[]|null>(null);const [totalsError,setTotalsError]=useState('');
+  useEffect(()=>{if(invalid)return;let live=true;setTotals(null);setTotalsError('');
+    api<ConsumptionTotal[]>(`consumption?from=${from}&to=${to}`).then(rows=>live&&setTotals(rows)).catch(e=>live&&setTotalsError(e.message));
+    return()=>{live=false;};},[from,to,invalid,records]);
+  const clubIds=new Set(clubs.map(c=>c.id));const consumed=(totals||[]).filter(r=>clubIds.has(r.clubId));
   const rows=records.filter(r=>{
     if(r.type==='feedInventory'){const month=`${r.data.year}-${String(r.data.month).padStart(2,'0')}`;return month>=from.slice(0,7)&&month<=to.slice(0,7);}
     if(r.type==='grocery'){const d=typeof r.data.purchaseDate==='string'?r.data.purchaseDate.slice(0,10):null;return !d||(d>=from&&d<=to);}return false;
   });
-  return <><div className="date-filters"><label>From<input type="date" value={from} onChange={e=>setFrom(e.target.value)} required/></label><label>To<input type="date" value={to} onChange={e=>setTo(e.target.value)} required/></label><span>EFM consumption uses source UTC dates.</span></div>{invalid?<p className="error" role="alert">Choose both dates. The end date must be on or after the start date.</p>:<><DataNote>Feed balances, additions and total usage are monthly source figures, including when you select part of a month. Grocery usage is shown separately as recorded monthly tracker figures; groceries without a purchase date remain visible.</DataNote><DataTable headers={['Food item','Source period','Club','Stock / balance','Added','Total used','Synced']} rows={rows.map(r=>({key:r.id,search:JSON.stringify(r.data)+clubName(r.clubId),cells:[<><strong>{text(r.type==='feedInventory'?r.data.feedType:r.data.name)}</strong><small>{r.type==='feedInventory'?'Horse feed':'Groceries'}</small></>,r.type==='feedInventory'?`${r.data.month}/${r.data.year} · monthly`:date(r.data.purchaseDate),clubName(r.clubId),`${quantity(r.type==='feedInventory'?r.data.unitsLeft:r.data.quantity)} ${text(r.data.unit)}`,r.type==='feedInventory'?`${quantity(r.data.unitsBrought)} ${text(r.data.unit)} / month`:'Unavailable',r.type==='feedInventory'?`${quantity(r.data.totalUsed)} ${text(r.data.unit)} / month`:'Unavailable',date(r.syncedAt,true)]}))}/><h2 className="subheading">Feed consumed in selected dates</h2><DataTable headers={['Feed','Club','Recorded consumption','Unit']} rows={[...total.entries()].map(([key,r])=>({key,search:r.feed+clubName(r.club),cells:[r.feed,clubName(r.club),quantity(r.quantity),unit(r.club,r.feed)]}))}/><GroceryUsage records={records.filter(r=>r.type==='groceryUsage'&&`${r.data.year}-${String(r.data.month).padStart(2,'0')}`>=from.slice(0,7)&&`${r.data.year}-${String(r.data.month).padStart(2,'0')}`<=to.slice(0,7))} clubName={clubName}/></>}</>;
+  return <><div className="date-filters"><label>From<input type="date" value={from} onChange={e=>setFrom(e.target.value)} required/></label><label>To<input type="date" value={to} onChange={e=>setTo(e.target.value)} required/></label><span>EFM consumption uses source UTC dates.</span></div>{invalid?<p className="error" role="alert">Choose both dates. The end date must be on or after the start date.</p>:<><DataNote>Feed balances, additions and total usage are monthly source figures, including when you select part of a month. Grocery usage is shown separately as recorded monthly tracker figures; groceries without a purchase date remain visible.</DataNote><DataTable headers={['Food item','Source period','Club','Stock / balance','Added','Total used','Synced']} rows={rows.map(r=>({key:r.id,search:JSON.stringify(r.data)+clubName(r.clubId),cells:[<><strong>{text(r.type==='feedInventory'?r.data.feedType:r.data.name)}</strong><small>{r.type==='feedInventory'?'Horse feed':'Groceries'}</small></>,r.type==='feedInventory'?`${r.data.month}/${r.data.year} · monthly`:date(r.data.purchaseDate),clubName(r.clubId),`${quantity(r.type==='feedInventory'?r.data.unitsLeft:r.data.quantity)} ${text(r.data.unit)}`,r.type==='feedInventory'?`${quantity(r.data.unitsBrought)} ${text(r.data.unit)} / month`:'Unavailable',r.type==='feedInventory'?`${quantity(r.data.totalUsed)} ${text(r.data.unit)} / month`:'Unavailable',date(r.syncedAt,true)]}))}/><h2 className="subheading">Feed consumed in selected dates</h2><DataTable empty={totalsError||(totals?'No consumption recorded in these dates.':'Loading consumption…')} headers={['Feed','Club','Recorded consumption','Unit']} rows={consumed.map(r=>({key:`${r.clubId}:${r.feedType}`,search:r.feedType+clubName(r.clubId),cells:[r.feedType,clubName(r.clubId),quantity(r.quantity),unit(r.clubId,r.feedType)]}))}/><GroceryUsage records={records.filter(r=>r.type==='groceryUsage'&&`${r.data.year}-${String(r.data.month).padStart(2,'0')}`>=from.slice(0,7)&&`${r.data.year}-${String(r.data.month).padStart(2,'0')}`<=to.slice(0,7))} clubName={clubName}/></>}</>;
 }
 function GroceryUsage({records,clubName}:{records:SourceRecord[];clubName:(id:string)=>string}) {
   const total=(r:SourceRecord,suffix:string)=>{

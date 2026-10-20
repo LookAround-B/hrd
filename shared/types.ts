@@ -8,8 +8,10 @@ export interface Club {
   status: 'pending' | 'active' | 'credential_required' | 'disconnected';
   validatedAt: string | null; lastSuccessAt: string | null; disconnectedAt: string | null;
   createdAt: string; employeeCount: number; horseCount: number; stale: boolean;
+  latestConsumptionDate?: string | null;
 }
 export interface SourceRecord { id: string; clubId: string; type: EntityType; sourceId: string; data: JsonRecord; syncedAt: string; }
+export interface ConsumptionTotal { clubId: string; feedType: string; quantity: number; }
 export interface RouteCheck { clubId: string; route: string; state: 'ok' | 'denied' | 'credential_required' | 'error'; status: number | null; latencyMs: number; checkedAt: string; lastSuccessAt: string | null; }
 export interface Dashboard { clubs: Club[]; records: SourceRecord[]; checks: RouteCheck[]; catalog: RouteDefinition[]; }
 export interface RouteDefinition { path: string; methods: string[]; safe: boolean; reason: string; type?: EntityType; }

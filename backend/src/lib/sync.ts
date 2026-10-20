@@ -58,15 +58,16 @@ export async function testConnection(clubId:string,read:EfmRead=readEfm) {
   }
 }
 
-export async function syncClub(clubId:string,options:{read?:EfmRead;pilot?:boolean}={}) {
+export async function syncClub(clubId:string,options:{read?:EfmRead;pilot?:boolean;deadline?:number}={}) {
   const lock=await db().connect();const read=options.read||readEfm;
   try {
     const acquired=(await lock.query('SELECT pg_try_advisory_lock(hashtextextended($1,0)) AS acquired',[clubId])).rows[0].acquired;
     if(!acquired) return {state:'busy',datasets:{}};
-    return await runLocked(clubId,lock,read,options.pilot===true);
+    return await runLocked(clubId,lock,read,options.pilot===true,options.deadline);
   }finally { try{await lock.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[clubId]);}finally{lock.release();} }
 }
-async function runLocked(clubId:string,lock:PoolClient,read:EfmRead,pilot:boolean) {
+const CONSUMPTION_REFRESH_MS=30*60000;
+async function runLocked(clubId:string,lock:PoolClient,read:EfmRead,pilot:boolean,deadline?:number) {
   const club=(await lock.query('SELECT * FROM hrd_clubs WHERE id=$1',[clubId])).rows[0];
   if(!club||!club.encrypted_token||club.status==='disconnected'||(!pilot&&club.status!=='active')) return {state:'skipped',datasets:{}};
   const version=club.credential_version;const id=randomUUID();
@@ -82,8 +83,9 @@ async function runLocked(clubId:string,lock:PoolClient,read:EfmRead,pilot:boolea
   }
   const datasets:Record<string,string>={};let stop=false;
   const checked:EfmRead=async(base,tok,path,query)=>{
-    try { const result=await read(base,tok,path,query);await routeCheck(clubId,path,'ok',result.status,result.latencyMs,version);return result; }
-    catch(error) {if(error instanceof EfmError) {await routeCheck(clubId,path,error.category,error.status,error.latencyMs,version);
+    const route=/^\/api\/employees\/[^/]+$/.test(path)?'/api/employees/[id]':path;
+    try { const result=await read(base,tok,path,query);await routeCheck(clubId,route,'ok',result.status,result.latencyMs,version);return result; }
+    catch(error) {if(error instanceof EfmError) {await routeCheck(clubId,route,error.category,error.status,error.latencyMs,version);
       if(error.category==='credential_required') {stop=true;await markCredentialRequired(clubId,version);} }throw error;}
   };
   const jobs: {type:EntityType;fetch:()=>Promise<unknown>}[] = [
@@ -108,15 +110,19 @@ async function runLocked(clubId:string,lock:PoolClient,read:EfmRead,pilot:boolea
     // EFM caps this list at 500 newest reports; a full page may be truncated, so fail instead of importing a partial history.
     {type:'accident',fetch:async()=>{const rows=arrayResponse((await checked(club.base_url,token,'/api/accident-reports',{limit:'500'})).body);if(rows.length>=500) throw new Error('EFM accident reports exceed the 500-record export limit');return rows;}}
   ];
+  // Scheduled runs reuse a recent consumption report; manual reconciliation always refetches.
+  const consumption=(await lock.query("SELECT count(*)::int n,min(synced_at) synced_at FROM hrd_records WHERE club_id=$1 AND entity_type='consumption'",[clubId])).rows[0];
+  const consumptionFresh=!pilot&&consumption.n>0&&Date.now()-consumption.synced_at.getTime()<CONSUMPTION_REFRESH_MS;
   try {
     for(const job of jobs) {
       if(stop) {datasets[job.type]='paused';continue;}
+      if(job.type==='consumption'&&consumptionFresh) {datasets.consumption=`ok:${consumption.n}`;continue;}
       try {const data=await job.fetch();const records=job.type==='consumption'?normalizeConsumption(data):normalize(job.type,data as unknown[]);
         await replaceDataset(clubId,job.type,records,version,undefined,pilot);datasets[job.type]=`ok:${records.length}`;
       }catch(error) {datasets[job.type]=error instanceof EfmError?error.category:'error';}
     }
     if(stop) datasets.efmExport='paused';
-    else try {const result=await syncExport(clubId,version,checked,club.base_url,token,{force:pilot});
+    else try {const result=await syncExport(clubId,version,checked,club.base_url,token,{force:pilot,budgetMs:deadline===undefined?undefined:Math.max(0,deadline-Date.now())});
       datasets.efmExport=result.failed?'error':`ok:${result.refreshed}/${result.datasets}`;
     }catch(error) {datasets.efmExport=error instanceof EfmError?error.category:'error';}
     const state=Object.values(datasets).every(v=>v.startsWith('ok:'))?'success':Object.values(datasets).some(v=>v.startsWith('ok:'))&&Object.values(datasets).every(v=>v.startsWith('ok:')||v==='denied')?'limited':'partial';
@@ -136,10 +142,16 @@ export async function maintenance() {
   await db().query('DELETE FROM hrd_admin_sessions WHERE expires_at<now()');
   await db().query('DELETE FROM hrd_rate_limits WHERE expires_at<now()');
 }
-export async function syncAll() {
+// One deadline for the whole pass: serverless hosts stop the call at 300s. Clubs that do not
+// get a turn count as failures (HTTP 207) and go first next time, so no club is starved.
+const CLUB_MIN_MS=60000;
+export async function syncAll(deadline=Date.now()+240000) {
   await maintenance();
-  const {rows}=await db().query("SELECT id FROM hrd_clubs WHERE status='active' ORDER BY created_at");
-  let failures=0;for(const club of rows) {try {const result=await syncClub(club.id);if(result.state==='partial') failures++;}
+  const {rows}=await db().query(`SELECT id FROM hrd_clubs c WHERE status='active'
+    ORDER BY (SELECT max(started_at) FROM hrd_sync_runs s WHERE s.club_id=c.id) NULLS FIRST, created_at`);
+  let failures=0;for(const club of rows) {
+    if(deadline-Date.now()<CLUB_MIN_MS) {failures++;await audit('scheduler','sync_deferred',club.id);continue;}
+    try {const result=await syncClub(club.id,{deadline});if(result.state==='partial') failures++;}
     catch {failures++;await audit('scheduler','sync_failed',club.id);} }
   return {clubs:rows.length,failures};
 }

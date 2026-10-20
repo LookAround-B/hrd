@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { clubA, dashboard } from './fixtures';
+import { clubA, consumptionTotals, dashboard, feedPlans } from './fixtures';
 
 async function mockApi(page: Page, options: { signedOut?: boolean; delay?: number; activationError?: boolean; dashboardError?: boolean } = {}) {
   await page.route('**/api/**', async route => {
@@ -28,6 +28,8 @@ async function mockApi(page: Page, options: { signedOut?: boolean; delay?: numbe
       return route.fulfill({ json: { total: rows.length, fields: ['id', 'employeeId', 'date', 'status', 'remarks'], rows } });
     }
     if (path === '/api/audit') return route.fulfill({ json: [] });
+    if (path === '/api/feed-plans') return route.fulfill({ json: feedPlans });
+    if (path === '/api/consumption') return route.fulfill({ json: consumptionTotals });
     if (path.endsWith('/status')) return route.fulfill({json:[{state:'partial',started_at:new Date().toISOString(),finished_at:new Date().toISOString(),datasets:{employee:'ok:25',horse:'ok:2',medicine:'denied',feedPlan:'error'}}]});
     return route.fulfill({ json: { ok: true, state: 'success', datasets: { employee: 'ok:25', horse: 'ok:2' } } });
   });
@@ -197,6 +199,7 @@ test('food date semantics and excluded API routes remain visible on mobile', asy
   await page.getByLabel('From', { exact: true }).fill('2026-10-01'); await page.getByLabel('To', { exact: true }).fill('2026-10-13');
   await expect(page.getByText('10/2026 · monthly').first()).toBeVisible(); await expect(page.getByText('100 kg / month')).toBeVisible();
   await expect(page.getByText('Rice tracker', { exact: true })).toBeVisible();
+  await expect(page.getByRole('row', { name: /oats\s*Willow Equestrian Club\s*2\s*kg/ })).toBeVisible();
   await page.getByText('Data availability', { exact: true }).click(); await expect(page.getByText(/monthly source figures/)).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/ui-mobile-food.png', fullPage: true });

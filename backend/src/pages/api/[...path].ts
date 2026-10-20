@@ -5,7 +5,7 @@ import { audit,adminEmails,demoLogin,HttpError,login,loginDemo,logout,requireSes
 import { db,transaction } from '../../lib/db';
 import { encryptToken,tokenExpiry,hash } from '../../lib/crypto';
 import { approvedBaseUrl,EfmError } from '../../lib/efm';
-import { dashboard } from '../../lib/store';
+import { consumptionTotals,dashboard,feedPlans } from '../../lib/store';
 import { syncClub,testConnection } from '../../lib/sync';
 
 export const config={api:{bodyParser:{sizeLimit:'32kb'}}};
@@ -27,6 +27,8 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
     if(path==='auth/session') {method(req,'GET');return res.status(200).json(user);}
     if(path==='auth/logout') {method(req,'POST');await logout(req,res,user.email);return res.status(200).json({ok:true});}
     if(path==='dashboard') {method(req,'GET');return res.status(200).json(await dashboard());}
+    if(path==='feed-plans') {method(req,'GET');const q=z.object({clubId:uuid,horseId:z.string().min(1).max(100)}).parse(req.query);return res.status(200).json(await feedPlans(q.clubId,q.horseId));}
+    if(path==='consumption') {method(req,'GET');const day=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);const q=z.object({from:day,to:day}).parse(req.query);return res.status(200).json(await consumptionTotals(q.from,q.to));}
     if(path==='audit') {method(req,'GET');return res.status(200).json((await db().query('SELECT actor,action,club_id,details,created_at FROM hrd_audit_events ORDER BY created_at DESC LIMIT 100')).rows);}
     if(path==='efm-data') {
       method(req,'GET');const clubId=uuid.parse(req.query.clubId);
@@ -39,13 +41,13 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
       const meta=(await db().query('SELECT fields FROM hrd_efm_datasets WHERE club_id=$1 AND dataset=$2',[q.clubId,q.dataset])).rows[0];
       if(!meta) throw new HttpError(404,'This EFM dataset has not been imported yet.');
       const fields:string[]=meta.fields;const params:unknown[]=[q.clubId,q.dataset];let where='club_id=$1 AND dataset=$2';
-      if(q.search.trim()) {params.push(`%${q.search.trim().replace(/[\\%_]/g,m=>'\\'+m)}%`);where+=` AND data::text ILIKE $${params.length}`;}
+      if(q.search.trim()) {params.push(`%${q.search.trim().replace(/[\\%_]/g,m=>'\\'+m)}%`);where+=` AND EXISTS (SELECT 1 FROM jsonb_each_text(data) e WHERE e.value ILIKE $${params.length})`;}
       // Exact-match column filters, e.g. {"horseId":"…"}; only known fields are accepted.
       let parsedFilters:unknown;try{parsedFilters=JSON.parse(q.filters);}catch{throw new HttpError(400,'Invalid filters.');}
       const filters=z.record(z.string(),z.string().max(200)).parse(parsedFilters);
       for(const [field,value] of Object.entries(filters)) {if(!fields.includes(field)) throw new HttpError(400,'Unknown filter field.');params.push(field,value);where+=` AND data->>$${params.length-1} = $${params.length}`;}
       const sort=q.sort&&fields.includes(q.sort)?q.sort:null;if(sort) params.push(sort);
-      const order=sort?`data->>$${params.length} ${q.dir==='desc'?'DESC':'ASC'} NULLS LAST, source_id`:'source_id';
+      const order=sort?`NULLIF(data->($${params.length}::text),'null'::jsonb) ${q.dir==='desc'?'DESC':'ASC'} NULLS LAST, source_id`:'source_id';
       const total=(await db().query(`SELECT count(*)::int n FROM hrd_efm_rows WHERE ${where}`,sort?params.slice(0,-1):params)).rows[0].n;
       params.push(q.take,q.skip);
       const rows=(await db().query(`SELECT source_id,data,synced_at FROM hrd_efm_rows WHERE ${where} ORDER BY ${order} LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows;

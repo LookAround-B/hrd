@@ -50,6 +50,18 @@ export function retryDelay(header: string | string[] | undefined, now=Date.now()
   const ms=/^\d+$/.test(value)?Number(value)*1000:Date.parse(value)-now;
   return Number.isFinite(ms)?Math.max(0,ms):1000;
 }
+// One keep-alive pool per checked address, so a sync reuses TLS connections instead of
+// handshaking for every request. Bounded: EFM hosts come from a short allow-list.
+const agents=new Map<string,Agent>();
+function pinnedAgent(hostname:string,selected:{address:string;family:number}):Agent {
+  const id=`${hostname}|${selected.address}`;let agent=agents.get(id);
+  if(agent) return agent;
+  if(agents.size>=50) {const [oldest,old]=agents.entries().next().value!;agents.delete(oldest);void old.close();}
+  agent=new Agent({ connect: { timeout:10000, lookup: (_hostname,options,callback) => {
+    if(typeof options==='object' && options.all) callback(null,[selected]); else callback(null,selected.address,selected.family);
+  } } });
+  agents.set(id,agent);return agent;
+}
 type EfmRequest = { method: 'GET' | 'POST'; headers: Record<string,string>; body?: string };
 export type EfmTransport = (url: URL, options: EfmRequest) => Promise<EfmResult>;
 const requestEfm: EfmTransport = async (url,options) => {
@@ -59,32 +71,27 @@ const requestEfm: EfmTransport = async (url,options) => {
   try { addresses=await lookup(url.hostname,{all:true}); }
   catch { throw new EfmError(null,Math.round(performance.now()-start),'error','EFM hostname could not be resolved.'); }
   if(!addresses.length||addresses.some(v=>!isPublicIp(v.address))) throw new EfmError(null,0,'error','EFM hostname does not resolve exclusively to public addresses.');
-  const selected=addresses[0];
-  const dispatcher=new Agent({ connect: { timeout:10000, lookup: (_hostname,options,callback) => {
-    if(typeof options==='object' && options.all) callback(null,[selected]); else callback(null,selected.address,selected.family);
-  } } });
-  try {
-    for(let attempt=0;attempt<3;attempt++) {
-      let result;
-      // Undici request does not follow redirects; no redirect interceptor is installed on this Agent.
-      try { result=await request(url,{ dispatcher,...options,headersTimeout:10000,bodyTimeout:10000,signal:AbortSignal.timeout(10000) }); }
-      catch { if(attempt<2) { await new Promise(r=>setTimeout(r,500*2**attempt)); continue; } throw new EfmError(null,Math.round(performance.now()-start),'error','EFM request timed out or failed.'); }
-      const latencyMs=Math.round(performance.now()-start); const status=result.statusCode;
-      if(status===401||status===403) { await result.body.dump(); throw new EfmError(status,latencyMs,status===401?'credential_required':'denied',status===401?'EFM credential expired or was revoked.':'EFM denied access to this route.'); }
-      if(status===429||status>=500) {
-        await result.body.dump(); const delay=status===429?retryDelay(result.headers['retry-after']):500*2**attempt;
-        if(attempt===2||delay>30000) throw new EfmError(status,latencyMs,'error','EFM is rate-limited or unavailable; retained the previous data.');
-        await new Promise(r=>setTimeout(r,Math.max(250,delay)));continue;
-      }
-      if(status!==200) { await result.body.dump(); throw new EfmError(status,latencyMs,'error',status>=300&&status<400?'EFM redirects are not followed.':'EFM did not return a successful response.'); }
-      try {
-        const chunks:Buffer[]=[];let size=0;
-        for await(const chunk of result.body) { size+=chunk.length; if(size>5*1024*1024) { result.body.destroy();throw new Error('Response too large'); } chunks.push(Buffer.from(chunk)); }
-        return {body:JSON.parse(Buffer.concat(chunks).toString('utf8')),status,latencyMs};
-      } catch { throw new EfmError(status,latencyMs,'error','EFM response was not valid bounded JSON.'); }
+  const dispatcher=pinnedAgent(url.hostname,addresses[0]);
+  for(let attempt=0;attempt<3;attempt++) {
+    let result;
+    // Undici request does not follow redirects; no redirect interceptor is installed on this Agent.
+    try { result=await request(url,{ dispatcher,...options,headersTimeout:10000,bodyTimeout:10000,signal:AbortSignal.timeout(10000) }); }
+    catch { if(attempt<2) { await new Promise(r=>setTimeout(r,500*2**attempt)); continue; } throw new EfmError(null,Math.round(performance.now()-start),'error','EFM request timed out or failed.'); }
+    const latencyMs=Math.round(performance.now()-start); const status=result.statusCode;
+    if(status===401||status===403) { await result.body.dump(); throw new EfmError(status,latencyMs,status===401?'credential_required':'denied',status===401?'EFM credential expired or was revoked.':'EFM denied access to this route.'); }
+    if(status===429||status>=500) {
+      await result.body.dump(); const delay=status===429?retryDelay(result.headers['retry-after']):500*2**attempt;
+      if(attempt===2||delay>30000) throw new EfmError(status,latencyMs,'error','EFM is rate-limited or unavailable; retained the previous data.');
+      await new Promise(r=>setTimeout(r,Math.max(250,delay)));continue;
     }
-    throw new EfmError(null,0,'error','EFM request failed.');
-  } finally { await dispatcher.close(); }
+    if(status!==200) { await result.body.dump(); throw new EfmError(status,latencyMs,'error',status>=300&&status<400?'EFM redirects are not followed.':'EFM did not return a successful response.'); }
+    try {
+      const chunks:Buffer[]=[];let size=0;
+      for await(const chunk of result.body) { size+=chunk.length; if(size>5*1024*1024) { result.body.destroy();throw new Error('Response too large'); } chunks.push(Buffer.from(chunk)); }
+      return {body:JSON.parse(Buffer.concat(chunks).toString('utf8')),status,latencyMs};
+    } catch { throw new EfmError(status,latencyMs,'error','EFM response was not valid bounded JSON.'); }
+  }
+  throw new EfmError(null,0,'error','EFM request failed.');
 };
 
 export function isIntegrationKey(value: string): boolean { return /^efm_live_[A-Za-z0-9_-]{40,80}$/.test(value); }

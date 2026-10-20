@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEfmReader, EfmError, approvedBaseUrl, approvedPath, isPublicIp, type EfmTransport } from '../backend/src/lib/efm';
 import { encryptToken, decryptToken, tokenExpiry } from '../backend/src/lib/crypto';
+import { connectionString } from '../backend/src/lib/db';
 
 const base='https://efm.example.com';
 const key=`efm_live_${'a'.repeat(43)}`;
@@ -94,5 +95,12 @@ describe('persistent EFM credentials',()=>{
     const encrypted=encryptToken(key,'club-a');expect(encrypted).not.toContain(key);
     expect(decryptToken(encrypted,'club-a')).toBe(key);expect(()=>decryptToken(encrypted,'club-b')).toThrow();
     expect(tokenExpiry(key)).toBeNull();
+  });
+});
+
+describe('database connection',()=>{
+  it('drops SSL parameters from the URL so they cannot override certificate checks',()=>{
+    expect(connectionString('postgresql://u:p@db.example.com:5432/hrd?sslmode=no-verify&ssl=true&sslrootcert=/tmp/ca.pem&application_name=hrd'))
+      .toBe('postgresql://u:p@db.example.com:5432/hrd?application_name=hrd');
   });
 });

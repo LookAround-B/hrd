@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PoolClient } from 'pg';
 import { db,transaction } from './db';
 import { EfmError,type EfmRead } from './efm';
 import { object } from './normalize';
@@ -18,13 +19,22 @@ export function exportRow(raw:unknown):{sourceId:string;data:Record<string,unkno
   for(const [key,value] of Object.entries(row)) if(!secret.test(key)) data[key]=typeof value==='string'&&value.length>20000?`${value.slice(0,20000)}…`:value;
   return {sourceId:String(row.id),data};
 }
+async function lockClub(tx:PoolClient,clubId:string,version:number) {
+  const club=(await tx.query('SELECT credential_version,status FROM hrd_clubs WHERE id=$1 FOR UPDATE',[clubId])).rows[0];
+  if(!club||club.status==='disconnected'||club.credential_version!==version) throw new Error('Club credential or connection changed');
+}
 export async function syncExport(clubId:string,version:number,read:EfmRead,base:string,token:string,options:{budgetMs?:number;force?:boolean}={}) {
   const started=Date.now();const budget=options.budgetMs??150000;
   const listed=catalog.parse((await read(base,token,EXPORT_PATH)).body).datasets;
   const known=new Map((await db().query('SELECT dataset,synced_at FROM hrd_efm_datasets WHERE club_id=$1',[clubId])).rows.map(r=>[r.dataset as string,r.synced_at as Date|null]));
+  // An empty catalog never means "delete everything": the previous mirror is kept.
+  if(!listed.length) return {datasets:0,refreshed:0,failed:0,deferred:0};
   // Tables EFM no longer shares are removed from HRD.
-  await db().query('DELETE FROM hrd_efm_rows WHERE club_id=$1 AND NOT (dataset = ANY($2))',[clubId,listed.map(d=>d.name)]);
-  await db().query('DELETE FROM hrd_efm_datasets WHERE club_id=$1 AND NOT (dataset = ANY($2))',[clubId,listed.map(d=>d.name)]);
+  await transaction(async tx=>{
+    await lockClub(tx,clubId,version);
+    await tx.query('DELETE FROM hrd_efm_rows WHERE club_id=$1 AND NOT (dataset = ANY($2))',[clubId,listed.map(d=>d.name)]);
+    await tx.query('DELETE FROM hrd_efm_datasets WHERE club_id=$1 AND NOT (dataset = ANY($2))',[clubId,listed.map(d=>d.name)]);
+  });
   const due=listed.filter(d=>options.force||!known.get(d.name)||Date.now()-known.get(d.name)!.getTime()>REFRESH_MS)
     .sort((a,b)=>(known.get(a.name)?.getTime()??0)-(known.get(b.name)?.getTime()??0));
   let ok=0,failed=0,deferred=0;
@@ -35,8 +45,7 @@ export async function syncExport(clubId:string,version:number,read:EfmRead,base:
       const records=rows.map(exportRow);const seen=new Set<string>();
       for(const r of records) {if(seen.has(r.sourceId)) throw new Error('Duplicate EFM export row');seen.add(r.sourceId);}
       await transaction(async tx=>{
-        const club=(await tx.query('SELECT credential_version,status FROM hrd_clubs WHERE id=$1 FOR UPDATE',[clubId])).rows[0];
-        if(!club||club.status==='disconnected'||club.credential_version!==version) throw new Error('Club credential or connection changed');
+        await lockClub(tx,clubId,version);
         await tx.query('DELETE FROM hrd_efm_rows WHERE club_id=$1 AND dataset=$2',[clubId,dataset.name]);
         for(let i=0;i<records.length;i+=5000) await tx.query(`INSERT INTO hrd_efm_rows(club_id,dataset,source_id,data)
           SELECT $1,$2,row->>'sourceId',row->'data' FROM jsonb_array_elements($3::jsonb) row`,[clubId,dataset.name,JSON.stringify(records.slice(i,i+5000))]);
