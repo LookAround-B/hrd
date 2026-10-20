@@ -1,12 +1,14 @@
 import { Pool, type PoolClient } from 'pg';
 import { checkServerIdentity, type PeerCertificate } from 'node:tls';
+import { VPS_DB_CA } from './db-ca';
 const globalDb = globalThis as unknown as { hrdPool?: Pool };
 // DB_SSL_SERVERNAME: the name on the certificate when DATABASE_URL uses an IP address
-// (the VPS accepts IPv4 only, while its certificate names the host).
+// (the VPS accepts IPv4 only, while its certificate names the host). With it set and no DB_CA_CERT,
+// the pinned VPS certificate is trusted.
 export function sslOptions(env: NodeJS.ProcessEnv = process.env) {
   if (env.DB_SSL === 'false') return false;
   const servername = env.DB_SSL_SERVERNAME;
-  return { ca: env.DB_CA_CERT?.replace(/\\n/g, '\n') || undefined,
+  return { ca: env.DB_CA_CERT?.replace(/\\n/g, '\n') || (servername ? VPS_DB_CA : undefined),
     ...(servername && { servername, checkServerIdentity: (_host: string, cert: PeerCertificate) => checkServerIdentity(servername, cert) }) };
 }
 // pg lets SSL parameters in the URL override the ssl option (e.g. sslmode=no-verify would

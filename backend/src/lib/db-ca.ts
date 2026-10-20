@@ -1,0 +1,23 @@
+// Self-signed certificate of the HRD Postgres on the VPS (srv1428008.hstgr.cloud), valid until Feb 2036.
+// Public by nature: the server presents it to every client. Pinned here so certificate checks work
+// without a DB_CA_CERT variable; DB_CA_CERT still overrides it.
+export const VPS_DB_CA = `-----BEGIN CERTIFICATE-----
+MIIDHzCCAgegAwIBAgIUDzGanz60g4dWWFupimPZ9GHaL+owDQYJKoZIhvcNAQEL
+BQAwITEfMB0GA1UEAwwWc3J2MTQyODAwOC5oc3Rnci5jbG91ZDAeFw0yNjAyMjcw
+NzIwNTRaFw0zNjAyMjUwNzIwNTRaMCExHzAdBgNVBAMMFnNydjE0MjgwMDguaHN0
+Z3IuY2xvdWQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDLgLXdtuP7
+dpfLluFB+EslMzJCXt1qnNTIF4bAuE9EEv3vdJKDnLB6TXim8pZg9tXKgYTxTA2v
+S8wD2KVVOajH4A1qFU4XKsUyeEJaR1bH+gPPlnd46JvWZNjRr4gCpF9MDyNeci2w
+l9erbitja0lWwj47eP/seQ7MtVXqWIUlwFEggtCgJ5M9RluJBKXGXtnPcr0qaoyW
+adG2wzQaHqeNjrUnNcRsxyYYs3xqkt2RKmgkf5r1+O0N7/AR+vnnyTCjgh6YqAjP
+EIpfES1lwGxZUWffrZq1Apwvveb76fFCT6jBi5r00LKuM+Im1/V1FAkgUiVRpEiO
+CulrPiaeK5C3AgMBAAGjTzBNMAkGA1UdEwQCMAAwIQYDVR0RBBowGIIWc3J2MTQy
+ODAwOC5oc3Rnci5jbG91ZDAdBgNVHQ4EFgQU1Fj7tcFJ3PJytraEHYSYmCZEdXAw
+DQYJKoZIhvcNAQELBQADggEBAALEf6B2fPvb/6g8ZpU9tDAHSwEJ3Oqvo/Po/Iej
+mLP+TBioxu8EpNF+NAJOzVPnQO+O+DI3O4hFXaFbs/SiuB7HP3FJrZt+2EnuYTdq
+3+9S5Jx46xpZHHZ6v2UTRtldTpHU85nYxPVbp3X5xdgAljWmdl3NNjzuKLSXzKCI
+HDqdZdtMm7o33BVccGb5mnnreQLob1EYmj1dRQejQNeCNhLqmL36YUBLxw1PoOM+
+rhKGAyXEWJBYK3WUZjNpBClN3IUGw/FY7XZgjkM9f8B+pl48G3PsTAIgkvWlWCZR
+k8PXAUO7bJo1GuiDa12E1nQKb58KntNVla8X2HzOTIPytyE=
+-----END CERTIFICATE-----
+`;

@@ -103,6 +103,12 @@ describe('database connection',()=>{
     expect(connectionString('postgresql://u:p@db.example.com:5432/hrd?sslmode=no-verify&ssl=true&sslrootcert=/tmp/ca.pem&application_name=hrd'))
       .toBe('postgresql://u:p@db.example.com:5432/hrd?application_name=hrd');
   });
+  it('trusts the pinned VPS certificate when only DB_SSL_SERVERNAME is set, and lets DB_CA_CERT override it',()=>{
+    const pinned=sslOptions({DB_SSL_SERVERNAME:'srv1428008.hstgr.cloud'});
+    expect(pinned&&pinned.ca).toContain('BEGIN CERTIFICATE');
+    expect(sslOptions({DB_SSL_SERVERNAME:'srv1428008.hstgr.cloud',DB_CA_CERT:'custom'})).toMatchObject({ca:'custom'});
+    expect(sslOptions({})).toMatchObject({ca:undefined});
+  });
   it('checks the certificate against DB_SSL_SERVERNAME when the URL uses an IP',()=>{
     expect(sslOptions({DB_SSL:'false'})).toBe(false);
     const options=sslOptions({DB_SSL_SERVERNAME:'db.example.com'});
