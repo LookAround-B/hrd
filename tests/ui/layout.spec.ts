@@ -35,13 +35,29 @@ async function mockApi(page: Page, options: { signedOut?: boolean; delay?: numbe
   });
 }
 
+// HRD uses custom Select and DatePicker components instead of native controls.
+async function choose(page: Page, label: string, option: string) {
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
+async function pickDate(page: Page, label: string, iso: string) {
+  const trigger = page.getByRole('button', { name: new RegExp(`^${label},`) });
+  const forward = iso > ((await trigger.getAttribute('data-value')) || '');
+  await trigger.click();
+  const calendar = page.getByRole('dialog', { name: `Choose ${label.toLowerCase()} date` });
+  const day = calendar.getByRole('button', { name: new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }), exact: true });
+  for (let i = 0; i < 36 && !(await day.isVisible()); i++) await calendar.getByRole('button', { name: forward ? 'Next month' : 'Previous month' }).click();
+  await day.click();
+  await expect(trigger).toHaveAttribute('data-value', iso);
+}
+
 test('desktop navigation, filtering, horse detail and map remain usable', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await mockApi(page); await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/');
   await expect(page.getByRole('heading', { name: clubA.name })).toBeVisible();
   await page.screenshot({ path: 'test-results/ui-clubs.png', fullPage: true });
   await page.getByRole('button', { name: 'Employees', exact: true }).click();
-  await page.getByLabel('Club', { exact: true }).selectOption(clubA.id);
+  await choose(page, 'Club', clubA.name);
   await expect(page.getByText('Asha Menon', { exact: true })).toBeVisible();
   await expect(page.getByText('Ravi Kumar', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Next page' }).click();
@@ -106,7 +122,7 @@ test('health tab flags due care and links the guide to the schedule', async ({ p
   await page.getByText('Vaccination and preventive health schedule').click();
   await page.screenshot({ path: 'test-results/ui-health-guide.png', fullPage: true });
   await page.getByRole('button', { name: /horses? needs? vaccination/ }).click();
-  await expect(page.getByRole('combobox', { name: 'Care' })).toHaveValue('Vaccination');
+  await expect(page.getByRole('combobox', { name: 'Care' })).toHaveAttribute('data-value', 'Vaccination');
   await expect(page.getByText('Atlas', { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -119,7 +135,7 @@ test('EFM data browses every mirrored table with search, sort and row detail', a
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await mockApi(page); await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/');
   await page.getByRole('button', { name: 'EFM Data', exact: true }).click();
-  await page.getByLabel('Club', { exact: true }).selectOption(clubA.id);
+  await choose(page, 'Club', clubA.name);
   await expect(page.getByRole('heading', { name: 'Attendance' })).toBeVisible();
   await expect(page.getByText('Asha Menon', { exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Search EFM rows' }).fill('sick');
@@ -196,14 +212,14 @@ test('food date semantics and excluded API routes remain visible on mobile', asy
   await mockApi(page); await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
   await expect(page.getByRole('heading', { name: clubA.name })).toBeVisible();
   await page.getByRole('button', { name: 'Open navigation' }).click(); await page.getByRole('button', { name: 'Food', exact: true }).click();
-  await page.getByLabel('From', { exact: true }).fill('2026-10-01'); await page.getByLabel('To', { exact: true }).fill('2026-10-13');
+  await pickDate(page, 'From', '2026-10-01'); await pickDate(page, 'To', '2026-10-13');
   await expect(page.getByText('10/2026 · monthly').first()).toBeVisible(); await expect(page.getByText('100 kg / month')).toBeVisible();
   await expect(page.getByText('Rice tracker', { exact: true })).toBeVisible();
   await expect(page.getByRole('row', { name: /oats\s*Willow Equestrian Club\s*2\s*kg/ })).toBeVisible();
   await page.getByText('Data availability', { exact: true }).click(); await expect(page.getByText(/monthly source figures/)).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/ui-mobile-food.png', fullPage: true });
-  await page.getByLabel('From', { exact: true }).fill('2026-11-01'); await expect(page.getByRole('alert')).toContainText('end date');
+  await pickDate(page, 'From', '2026-11-01'); await expect(page.getByRole('alert')).toContainText('end date');
   await page.getByRole('button', { name: 'Open navigation' }).click(); await page.getByRole('button', { name: 'API Routes', exact: true }).click();
   await page.getByRole('textbox', { name: 'Search records' }).fill('/api/horse-feed'); await expect(page.getByText('Excluded', { exact: true }).first()).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
@@ -287,7 +303,7 @@ test('club lifecycle continues after a failed connection test through sync, acti
   await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'Save connection'}).click();
   await expect(dialog).not.toBeVisible();await expect(page.getByRole('status')).toContainText('Connection saved, but verification did not complete');
   await expect(page.getByRole('heading',{name:club.name,exact:true})).toBeVisible();
-  await expect(page.getByLabel('Club',{exact:true})).toHaveValue(club.id);
+  await expect(page.getByRole('combobox',{name:'Club',exact:true})).toHaveAttribute('data-value',club.id);
   failTest=false;await page.getByRole('button',{name:'Test connection',exact:true}).click();
   await expect(page.getByRole('status')).toContainText('Connection verified');
   await page.getByRole('button',{name:'Sync & reconcile',exact:true}).click();
@@ -312,6 +328,36 @@ test('food opens on the latest recorded month when EFM has no recent food entrie
   await mockApi(page); await page.goto('/');
   await expect(page.getByRole('heading', { name: clubA.name })).toBeVisible();
   await page.getByRole('button', { name: 'Food', exact: true }).click();
-  await expect(page.getByLabel('From', { exact: true })).toHaveValue('2026-10-01');
+  await expect(page.getByRole('button', { name: /^From,/ })).toHaveAttribute('data-value', '2026-10-01');
   await expect(page.getByText('10/2026 · monthly').first()).toBeVisible();
+});
+
+test('custom select and date picker work by keyboard and inside dialogs', async ({ page }) => {
+  await mockApi(page); await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/');
+  const club = page.getByRole('combobox', { name: 'Club', exact: true });
+  await club.focus(); await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('listbox', { name: 'Club' })).toBeFocused();
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
+  await expect(club).toHaveAttribute('data-value', dashboard.clubs[0].id); await expect(club).toBeFocused();
+  await page.getByRole('button', { name: 'Activity log' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Activity log' }); const rows = dialog.getByRole('combobox', { name: 'Rows per page' });
+  await rows.click(); await page.getByRole('option', { name: '50', exact: true }).click();
+  await expect(rows).toHaveAttribute('data-value', '50'); await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(dialog).not.toBeVisible();
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  const from = page.getByRole('button', { name: /^From,/ }); const start = (await from.getAttribute('data-value'))!;
+  await from.click(); await expect(page.getByRole('dialog', { name: 'Choose from date' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/ui-date-picker.png' });
+  await page.keyboard.press('ArrowRight'); await page.keyboard.press('Enter');
+  await expect(from).toHaveAttribute('data-value', new Date(Date.parse(`${start}T00:00:00Z`) + 86400000).toISOString().slice(0, 10));
+});
+
+test('the open tab survives a page refresh and follows back/forward', async ({ page }) => {
+  await mockApi(page); await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Clubs', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await expect(page).toHaveURL(/#food$/);
+  await page.reload(); await expect(page.getByRole('heading', { name: 'Food', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Entity Map', exact: true }).click(); await expect(page).toHaveURL(/#entity-map$/);
+  await page.goBack(); await expect(page.getByRole('heading', { name: 'Food', exact: true })).toBeVisible();
 });

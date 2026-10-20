@@ -1,7 +1,7 @@
 import { useMemo,useState } from 'react';
 import { ArrowUpRight,Search,X,Stethoscope,ChevronDown } from 'lucide-react';
 import type { SourceRecord } from '../../shared/types';
-import { Badge,DataTable,DataNote,Empty,Identity,date,text,quantity } from './components';
+import { Badge,DataTable,DataNote,Empty,Identity,Select,date,text,quantity } from './components';
 import { careIntervals,careMatchers,guide,vitals,type CareCategory,type Priority } from './healthGuide';
 
 export const careCategories=Object.keys(careIntervals) as CareCategory[];
@@ -91,7 +91,7 @@ export function Health({records,clubName,onHorse}:{records:SourceRecord[];clubNa
     <div className="segmented" role="group" aria-label="Health view">{(['Care schedule','Records & treatments','Care guide'] as View[]).map(v=><button key={v} aria-pressed={v===view} onClick={()=>setView(v)}>{v}</button>)}</div>
     {view==='Care schedule'&&<>
       <DataNote>Due dates use EFM’s recorded next-due date. When none is recorded, HRD estimates it from the last record and the club’s default interval: {careCategories.map(c=>`${c} ${careIntervals[c].days} days`).join(', ')}. Sources: EFM health records (grouped by type, then description), farrier shoeing records with EFM’s next-due date, and medicine logs whose medicine or diagnosis names a vaccine or dewormer (rejected logs are ignored). Farrier shoeing needs the EFM integration update; until then it shows as unavailable in Sync history.</DataNote>
-      <div className="care-filters"><label>Status<select value={state} onChange={e=>setState(e.target.value as StateFilter)}><option value="all">All horses</option><option value="attention">Needs attention</option><option value="overdue">Overdue</option><option value="soon">Due within {SOON_DAYS} days</option><option value="none">Not recorded</option></select></label><label>Care<select value={category} onChange={e=>setCategory(e.target.value as CareCategory|'all')}><option value="all">All care</option>{careCategories.map(c=><option key={c}>{c}</option>)}</select></label>{(state!=='all'||category!=='all')&&<button className="subtle" onClick={()=>{setState('all');setCategory('all');}}><X size={15}/> Clear filters</button>}</div>
+      <div className="care-filters"><label>Status<Select label="Status" value={state} onChange={v=>setState(v as StateFilter)} options={[{value:'all',label:'All horses'},{value:'attention',label:'Needs attention'},{value:'overdue',label:'Overdue'},{value:'soon',label:`Due within ${SOON_DAYS} days`},{value:'none',label:'Not recorded'}]}/></label><label>Care<Select label="Care" value={category} onChange={v=>setCategory(v as CareCategory|'all')} options={[{value:'all',label:'All care'},...careCategories.map(c=>({value:c,label:c}))]}/></label>{(state!=='all'||category!=='all')&&<button className="subtle" onClick={()=>{setState('all');setCategory('all');}}><X size={15}/> Clear filters</button>}</div>
       <DataTable empty="No horses match these care filters." headers={['Horse',...visibleCategories,'Next action','Details']} rows={rows}/>
     </>}
     {view==='Records & treatments'&&<Records records={records} horseOf={horseOf} clubName={clubName}/>}
@@ -135,7 +135,7 @@ function Guide({needing,onCare}:{needing:(c:CareCategory)=>number;onCare:(c:Care
     <section className="vitals" aria-labelledby="vitals-title"><h2 id="vitals-title"><Stethoscope size={19}/> Normal vital signs · adult horse at rest</h2><dl>{vitals.map(v=><div key={v.label}><dt>{v.label}</dt><dd><strong>{v.normal}</strong><small>Call the vet: {v.alert}</small></dd></div>)}</dl></section>
     <div className="guide-tools"><label className="search"><Search size={17}/><input aria-label="Search care guide" placeholder="Search signs, conditions or care…" value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button className="icon-button" aria-label="Clear guide search" onClick={()=>setQuery('')}><X size={16}/></button>}</label>
       <div className="segmented compact" role="group" aria-label="Priority">{priorities.map(p=><button key={p.value} aria-pressed={p.value===priority} onClick={()=>setPriority(p.value)}>{p.label}</button>)}</div>
-      <select aria-label="Guide category" value={category} onChange={e=>setCategory(e.target.value)}><option value="all">All topics</option>{categories.map(c=><option key={c}>{c}</option>)}</select>
+      <Select label="Guide category" value={category} onChange={setCategory} options={[{value:'all',label:'All topics'},...categories.map(c=>({value:c,label:c}))]}/>
       <button onClick={()=>setExpanded(v=>!v)}>{expanded?'Collapse all':'Expand all'}</button><span>Total topics: {guide.length} · Showing: {topics.length}</span></div>
     {!topics.length?<div className="table-empty"><Search size={24}/><p>No topics match. Try another word, such as “fever” or “lameness”.</p></div>:
     <div className="guide-grid">{topics.map(t=>{const count=t.care?needing(t.care):0;return <details key={t.id} className={`guide-card ${t.priority}`} open={expanded||!!q}>

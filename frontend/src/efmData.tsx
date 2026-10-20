@@ -2,7 +2,7 @@ import { useEffect,useMemo,useState } from 'react';
 import { ArrowDown,ArrowUp,ChevronLeft,ChevronRight,Database,Search,X,LoaderCircle } from 'lucide-react';
 import type { SourceRecord } from '../../shared/types';
 import { api } from './api';
-import { Badge,Empty,Modal,date } from './components';
+import { Badge,Empty,Modal,Select,date } from './components';
 
 // Browser for HRD's full mirror of EFM's read-only export: every table EFM shares, paged on the server.
 interface Dataset {dataset:string;total:number;fields:string[];state:string;synced_at:string|null;checked_at:string}
@@ -56,7 +56,7 @@ export function EfmData({clubId,records}:{clubId:string;records:SourceRecord[]})
   return <div className="efm-data">
     <aside className="efm-datasets" aria-label="EFM datasets">
       <label className="search"><Search size={16}/><input aria-label="Find a dataset" placeholder={`Find in ${datasets.length} datasets…`} value={filter} onChange={e=>setFilter(e.target.value)}/></label>
-      <select className="efm-dataset-select" aria-label="Dataset" value={selected} onChange={e=>setSelected(e.target.value)}>{datasets.map(d=><option key={d.dataset} value={d.dataset}>{friendly(d.dataset)} ({d.total.toLocaleString()})</option>)}</select>
+      <Select className="efm-dataset-select" label="Dataset" value={selected} onChange={setSelected} options={datasets.map(d=>({value:d.dataset,label:`${friendly(d.dataset)} (${d.total.toLocaleString()})`}))}/>
       <nav>{visible.map(d=><button key={d.dataset} aria-current={d.dataset===selected?'true':undefined} onClick={()=>setSelected(d.dataset)}><span>{friendly(d.dataset)}</span><small className={d.state==='ok'?'':'error'}>{d.state==='ok'?d.total.toLocaleString():'!'}</small></button>)}</nav>
       <p className="muted">{rowsTotal.toLocaleString()} rows across {datasets.length} EFM tables</p>
     </aside>

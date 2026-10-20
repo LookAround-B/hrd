@@ -134,6 +134,9 @@ suite('complete HRD integration with isolated PostgreSQL and fixture EFM',()=>{
     process.env.DEMO_LOGIN_PHONE='+91 90000 00001';process.env.DEMO_LOGIN_CODE='demo-code-123';process.env.DEMO_LOGIN_UNTIL=new Date(Date.now()+3600000).toISOString();
     try {
       expect((await api('config')).body.demoLogin).toBe(true);
+      expect((await api('config')).body.demoCredentials).toEqual({phone:'+91 90000 00001',code:'demo-code-123'});
+      const env=process.env as Record<string,string|undefined>;const mode=env.NODE_ENV;env.NODE_ENV='production';
+      try {expect((await api('config')).body.demoCredentials).toBeNull();} finally {env.NODE_ENV=mode;}
       expect((await api('auth/demo',{phone:'9000000001',code:'demo-code-123'},{origin:'https://evil.test'})).code).toBe(403);
       expect((await api('auth/demo',{phone:'9000000001',code:'wrong-code'})).code).toBe(401);
       const ok=await api('auth/demo',{phone:'90000 00001',code:'demo-code-123'});expect(ok.code).toBe(200);

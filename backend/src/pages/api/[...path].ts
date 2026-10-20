@@ -13,6 +13,12 @@ const token=z.string().trim().min(20).max(10000).regex(/^[A-Za-z0-9._~-]+$/);
 const credentialMetadata={scopeNotes:z.string().trim().max(1000).default(''),rateLimitNotes:z.string().trim().max(1000).default('')};
 const clubInput=z.object({name:z.string().trim().min(1).max(150),brief:z.string().trim().max(1000).default(''),baseUrl:z.string().max(300),token,authorisation:z.string().trim().min(5).max(1000),issuer:z.string().trim().min(2).max(150),termsConfirmed:z.literal(true),...credentialMetadata});
 const uuid=z.string().uuid();
+// Local development only: shows the demo credentials on the sign-in page. Never sent in production,
+// where they would give admin access to anyone who opens the site.
+function demoCredentials() {
+  const demo=demoLogin();
+  return process.env.NODE_ENV!=='production'&&demo.enabled?{phone:process.env.DEMO_LOGIN_PHONE,code:demo.code}:null;
+}
 function method(req:NextApiRequest,expected:string) { if(req.method!==expected) throw new HttpError(405,'Method not allowed.'); }
 
 export default async function handler(req:NextApiRequest,res:NextApiResponse) {
@@ -20,7 +26,7 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
   const path=(Array.isArray(req.query.path)?req.query.path:[]).join('/');
   try {
     if(path==='health') {method(req,'GET');await db().query('SELECT 1');return res.status(200).json({status:'ok'});}
-    if(path==='config') {method(req,'GET');return res.status(200).json({googleClientId:process.env.GOOGLE_CLIENT_ID||null,authReady:!!process.env.GOOGLE_CLIENT_ID&&adminEmails().length>0&&!!process.env.APP_ORIGIN,demoLogin:demoLogin().enabled&&!!process.env.APP_ORIGIN});}
+    if(path==='config') {method(req,'GET');return res.status(200).json({googleClientId:process.env.GOOGLE_CLIENT_ID||null,authReady:!!process.env.GOOGLE_CLIENT_ID&&adminEmails().length>0&&!!process.env.APP_ORIGIN,demoLogin:demoLogin().enabled&&!!process.env.APP_ORIGIN,demoCredentials:demoCredentials()});}
     if(path==='auth/google') {method(req,'POST');return res.status(200).json(await login(req,res));}
     if(path==='auth/demo') {method(req,'POST');return res.status(200).json(await loginDemo(req,res));}
     const user=await requireSession(req,req.method!=='GET');

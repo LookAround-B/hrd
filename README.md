@@ -11,6 +11,7 @@ Requires Node 22.12+ and a separate PostgreSQL database. Install dependencies wi
 | `DATABASE_URL` | HRD database only; never EFM's database |
 | `DB_SSL` | `false` for a local Postgres without SSL; omit for hosted databases (SSL on) |
 | `DB_CA_CERT` | PEM CA certificate of a database whose certificate is not signed by a public CA (e.g. the VPS). The server certificate is always verified when SSL is on. `\n` escapes are accepted |
+| `DB_SSL_SERVERNAME` | Name on the database certificate when `DATABASE_URL` uses an IP address. VPS: `srv1428008.hstgr.cloud` (its Postgres accepts IPv4 only, so keep the IP in the URL) |
 | `TOKEN_ENCRYPTION_KEY` | Base64 32-byte key, generated with `openssl rand -base64 32`; identical in API and scheduler |
 | `GOOGLE_CLIENT_ID` | Google web client ID; configure the HRD website as an authorised JavaScript origin |
 | `ADMIN_EMAILS` | Comma-separated administrator email allow-list |

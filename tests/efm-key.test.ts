@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEfmReader, EfmError, approvedBaseUrl, approvedPath, isPublicIp, type EfmTransport } from '../backend/src/lib/efm';
 import { encryptToken, decryptToken, tokenExpiry } from '../backend/src/lib/crypto';
-import { connectionString } from '../backend/src/lib/db';
+import { connectionString, sslOptions } from '../backend/src/lib/db';
 
 const base='https://efm.example.com';
 const key=`efm_live_${'a'.repeat(43)}`;
@@ -102,5 +102,13 @@ describe('database connection',()=>{
   it('drops SSL parameters from the URL so they cannot override certificate checks',()=>{
     expect(connectionString('postgresql://u:p@db.example.com:5432/hrd?sslmode=no-verify&ssl=true&sslrootcert=/tmp/ca.pem&application_name=hrd'))
       .toBe('postgresql://u:p@db.example.com:5432/hrd?application_name=hrd');
+  });
+  it('checks the certificate against DB_SSL_SERVERNAME when the URL uses an IP',()=>{
+    expect(sslOptions({DB_SSL:'false'})).toBe(false);
+    const options=sslOptions({DB_SSL_SERVERNAME:'db.example.com'});
+    expect(options&&options.servername).toBe('db.example.com');
+    const cert={subject:{CN:'db.example.com'},subjectaltname:'DNS:db.example.com'} as never;
+    expect(options&&options.checkServerIdentity!('187.77.185.220',cert)).toBeUndefined();
+    expect(options&&options.checkServerIdentity!('187.77.185.220',{subject:{CN:'evil.example.com'},subjectaltname:'DNS:evil.example.com'} as never)).toBeInstanceOf(Error);
   });
 });
